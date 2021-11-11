@@ -1,0 +1,570 @@
+---
+title: "Environmental data"
+author: "Nicola G. Kriefall"
+date: "6/30/2021"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+    #code_folding: hide
+---
+
+```{r setup, include=FALSE}
+#work computer 
+#setwd("~/nicfall drive/Moorea_revisions/env_revised")
+#home computer
+setwd("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/")
+```
+
+## Setup - load packages
+
+```{r packages}
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(colorBlindness)
+library(scales)
+library(bestNormalize)
+library(Rmisc)
+```
+
+# Substrate composition
+
+```{r data processing}
+sub.tah <- read.csv('substrate.csv',header=TRUE)
+
+sub <- subset(sub.tah,Marine.Area!="Tahiti Faaa")
+
+sub$Substrate <- as.factor(sub$Substrate)
+#str(sub)
+##total proportion
+sub$prop.test <- (sub$proportion)/3
+
+##rename sites & habitats
+sub$Marine.Area <- as.factor(sub$Marine.Area)
+levels(sub$Marine.Area)
+levels(sub$Marine.Area) <- c("Mo'orea SE","Mo'orea NW")
+levels(sub$Marine.Area)
+sub$Marine.Area <- factor(sub$Marine.Area, levels=c("Mo'orea NW","Mo'orea SE")) #reorder
+
+sub$Habitat <- as.factor(sub$Habitat)
+levels(sub$Habitat)
+levels(sub$Habitat) <- c("Back","Fore")
+levels(sub$Habitat)
+
+##only interested in 2013 - year of collection
+sub13 <- subset(sub,Year=="2013")
+```
+
+## Plots {.tabset}
+
+### Figure - all the categories
+
+```{r plot2}
+ggplot(data=sub13, aes(x=Habitat, y=prop.test, fill=Substrate)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')
+
+#ggsave("substrate.png")
+```
+
+### Figure - summed categories
+
+```{r plot summed cats}
+sub13$Substrate <- gsub(" ","_",sub13$Substrate)
+
+sub13$sub_cats <- recode(sub13$Substrate, Acropora="Coral", Asparagopsis="Algae", Cyanophyceae="Algae", Dead_coral="Abiotic substrata", Dictyota="Algae", Halimeda="Algae", Macroalgae="Algae", Millepora="Coral", Montastrea="Coral", Montipora="Coral", Napopora="Coral", Pavement="Abiotic substrata", Pavona="Coral", Pocillopora="Coral", Porites="Coral", Psammocora="Coral", Rubble="Abiotic substrata", Sand="Abiotic substrata", Stegastes_Turf="Algae", Synarea="Coral", Turbinaria="Coral")
+
+pal <- hcl.colors(12,"Tofino")
+show_col(pal)
+colorz <- c("#3B415E","#8FC67C","#818CC0")
+
+sub3 <- ggplot(data=sub13, aes(x=Habitat, y=prop.test, fill=sub_cats)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+ #just need to remove 'nrow' here to go back to grid
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')+
+  scale_fill_manual(values=colorz,name="Substrate",labels=c("Abiotic","Algae","Coral"))
+
+sub3
+
+#cvdPlot(sub3)
+
+#ggsave("substrate_3cats.png",height=3.5) #can also go back to default if square
+```
+
+### Figure - medium categories
+
+```{r medium categories}
+sub13$sub_cats_med <- recode(sub13$Substrate, Acropora="Coral - Acropora", Asparagopsis="Algae - Asparagopsis", Cyanophyceae="Algae - Cyanophyceae", Dead_coral="Abiotic (e.g. rubble, sand)", Dictyota="Algae - Dictyota", Halimeda="Algae - Halimeda", Macroalgae="Algae - Macroalgae", Millepora="Coral - Millepora", Montastrea="Coral - Montastrea", Montipora="Coral - Montipora", Napopora="Coral - Napopora", Pavement="Abiotic (e.g. rubble, sand)", Pavona="Coral - Pavona", Pocillopora="Coral - Pocillopora", Porites="Coral - Porites", Psammocora="Coral - Psammocora", Rubble="Abiotic (e.g. rubble, sand)", Sand="Abiotic (e.g. rubble, sand)", Stegastes_Turf="Algae - Stegastes Turf", Synarea="Coral - Synarea", Turbinaria="Coral - Turbinaria")  
+
+#greens for algae
+pal.gr <- hcl.colors(5,"Greens")
+show_col(pal.gr)
+pal.gr
+#"#004616" "#30893B" "#81C07A" "#CAE8C1" "#F6FBF4"
+pal.bl <- hcl.colors(9,"BuPu")
+show_col(pal.bl)
+pal.bl
+#"#540046" "#6E2072" "#8346A1" "#8674B8" "#9099CA" "#A3BAD9" "#BED6E6" "#DBECF3" "#F2FBFC"
+
+colorz2 <- c("grey","#004616","#30893B","#81C07A","#CAE8C1","#F6FBF4","#540046","#6E2072","#8346A1","#8674B8","#9099CA","#A3BAD9","#BED6E6","#DBECF3","#F2FBFC")
+
+sub.med <- ggplot(data=sub13, aes(x=Habitat, y=prop.test, fill=sub_cats_med)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+ #just need to remove 'nrow' here to go back to grid
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')+
+ scale_fill_manual(values=colorz2,name="Substrate")
+
+sub.med
+#ggsave("substrate_medcats.png",height=4) #can also go back to default if square
+#cvdPlot(sub.med)
+```
+
+```{r, eval=FALSE, include=FALSE}
+#Tahiti didn't really work
+
+# tah <- subset(sub.tah,Marine.Area=="Tahiti Faaa")
+# 
+# tah$Substrate <- gsub(" ","_",tah$Substrate)
+# 
+# tah$sub_cats <- recode(tah$Substrate, Acropora="Coral", Montipora="Coral", Pavona="Coral", Pocillopora="Coral", Porites="Coral", Astrea_curta="Coral", Leptastrea="Coral", Autres="Coral")  
+# 
+# tah$sub_cats_med <- recode(tah$Substrate, Acropora="Coral - Acropora", Montipora="Coral - Montipora", Pavona="Coral - Pavona", Pocillopora="Coral - Pocillopora", Porites="Coral - Porites", Astrea_curta="Coral - Astrea curta", Leptastrea="Coral - Leptastrea", Autres="Coral - Autres")  
+# 
+# sub.coral <- subset(sub13,sub_cats=="Coral")
+# 
+# tah$prop.test <- (tah$proportion)/20
+# 
+# corals <- rbind(tah,sub.coral)
+# 
+# ggplot(data=corals, aes(x=Habitat, y=prop.test, fill=Substrate)) +
+#   geom_bar(stat="identity")+
+#   facet_wrap(~Marine.Area)+
+#   theme_cowplot()+
+#   ylab('Relative proportion')+
+#   xlab('Reef zone')                    
+```
+
+# Nutrients
+
+```{r read in nutrient data}
+nuts <- read.csv("nuts_13-14_renamed.csv",header=T)
+str(nuts)
+```
+
+## Box plots
+
+### Wrap by year
+
+```{r box plots x year}
+ggplot(nuts,aes(x=habitat,y=Phosphate_P2O5_uM))+
+  geom_boxplot()+
+  facet_wrap(~year)
+
+ggplot(nuts,aes(x=habitat,y=Nitrates_NO3_uM))+
+  geom_boxplot()+
+  facet_wrap(~year)
+
+ggplot(nuts,aes(x=habitat,y=Nitrites_NO2_uM))+
+  geom_boxplot()+
+  facet_wrap(~year)
+
+ggplot(nuts,aes(x=habitat,y=Silice_SiO2_uM))+
+  geom_boxplot()+
+  facet_wrap(~year)
+
+ggplot(nuts,aes(x=habitat,y=Ammonium_NH4_uM))+
+  geom_boxplot()+
+  facet_wrap(~year)
+```
+
+## Violin plots {.tabset}
+
+### Phosphates
+
+```{r violin phos}
+gg.pho <- ggplot(nuts,aes(x=habitat,y=Phosphate_P2O5_uM,color=habitat,shape=habitat))+
+  geom_violin()+
+  #geom_jitter(alpha=0.7)+
+  theme_cowplot()+
+  geom_boxplot(width=0.1,alpha=0)+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_x_discrete(labels=c("BR","FR"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme(legend.position="none")+
+  xlab("Habitat")+
+  ylab("Phosphates (µM)")
+gg.pho
+
+library(car)
+
+nuts$habitat <- as.factor(nuts$habitat)
+shapiro.test(log(nuts$Phosphate_P2O5_uM))
+leveneTest(nuts$Phosphate_P2O5_uM,nuts$habitat)#ns
+
+summary(aov(Phosphate_P2O5_uM~habitat,data=nuts)) #ns
+#wilcox.test(Phosphate_P2O5_uM~habitat,data=nuts,exact=FALSE) #ns
+```
+
+### Nitrates
+
+```{r violin nitra}
+gg.nia <- ggplot(nuts,aes(x=habitat,y=Nitrates_NO3_uM,color=habitat,shape=habitat))+
+  geom_violin()+
+  #geom_jitter(alpha=0.7)+
+  geom_boxplot(width=0.1,alpha=0)+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_x_discrete(labels=c("BR","FR"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme(legend.position="none")+
+  xlab("Habitat")+
+  ylab("Nitrates (µM)")
+gg.nia
+
+shapiro.test(log(nuts$Nitrates_NO3_uM)) #no
+leveneTest(nuts$Nitrates_NO3_uM,nuts$habitat)#ns
+
+#summary(aov(Nitrates_NO3_uM~habitat,data=nuts)) #p < 0.01**
+wilcox.test(Nitrates_NO3_uM~habitat,data=nuts,exact=FALSE) #p < 0.01**
+# Wilcoxon rank sum test with continuity correction
+# 
+# data:  Nitrates_NO3_uM by habitat
+# W = 435, p-value = 0.002519
+
+sum.nia <- summarySE(data=nuts,measurevar="Nitrates_NO3_uM",groupvars="habitat")
+sum.nia
+```
+
+### Nitrites
+
+```{r violin nitrites}
+gg.nii <- ggplot(nuts,aes(x=habitat,y=Nitrites_NO2_uM,color=habitat,shape=habitat))+
+  geom_violin()+
+  #geom_jitter(alpha=0.7)+
+  geom_boxplot(width=0.1,alpha=0)+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_x_discrete(labels=c("BR","FR"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme(legend.position="none")+
+  xlab("Habitat")+
+  ylab("Nitrites (µM)")
+gg.nii
+
+shapiro.test(nuts$Nitrites_NO2_uM)
+
+#summary(aov(Nitrites_NO2_uM~habitat,data=nuts)) #p < 0.05*
+wilcox.test(Nitrites_NO2_uM~habitat,data=nuts,exact=FALSE) #p < 0.01**
+
+sum.nii <- summarySE(data=nuts,measurevar="Nitrites_NO2_uM",groupvars="habitat")
+sum.nii
+```
+
+### Silica
+
+```{r violin sili}
+gg.sil <- ggplot(nuts,aes(x=habitat,y=Silice_SiO2_uM,color=habitat,shape=habitat))+
+  geom_violin()+
+  #geom_jitter(alpha=0.5)+
+  geom_boxplot(width=0.1,alpha=0)+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_x_discrete(labels=c("BR","FR"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme(legend.position="none")+
+  xlab("Habitat")+
+  ylab("Silica (µM)")
+gg.sil
+summary(aov(Silice_SiO2_uM~habitat,data=nuts)) #ns
+wilcox.test(Silice_SiO2_uM~habitat,data=nuts) #ns
+```
+
+### Ammonium
+
+```{r violin ammo}
+gg.amm <- ggplot(nuts,aes(x=habitat,y=Ammonium_NH4_uM,color=habitat,shape=habitat))+
+  geom_violin()+
+  #geom_jitter(alpha=0.5)+
+  geom_boxplot(width=0.1,alpha=0)+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_x_discrete(labels=c("BR","FR"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme(legend.position="none")+
+  xlab("Habitat")+
+  ylab("Ammonium (µM)")
+gg.amm
+summary(aov(Ammonium_NH4_uM~habitat,data=nuts)) #ns
+wilcox.test(Ammonium_NH4_uM~habitat,data=nuts) #ns
+```
+
+## Multipanel violin plot
+
+Results: 
+- phosphates not sig, log-transformed anova
+- nitrates
+- nitrites
+- silica
+- ammonium
+
+```{r}
+library(ggpubr)
+
+ggarrange(gg.pho,gg.nia,gg.nii,gg.sil,gg.amm,labels="AUTO")
+#ggsave("env_nutrients.pdf",width=7)
+
+```
+
+# Flow
+
+```{r flow data}
+flowdat <- read.csv("flow_rates_reformatted.csv",header=T)
+
+ggplot(flowdat,aes(x=site,y=speed_ms,fill=site))+
+  geom_boxplot()+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Flow (m/s)")+
+  xlab("Site-reef zone")+
+  theme(legend.position="none")
+#ggsave("mnw.flow.pdf",width=2.5,height=2)
+
+best.speed <- bestNormalize(flowdat$speed_ms)
+flowdat$speed.t <- best.speed$x.t
+
+a.flow <- aov(speed.t~site,data=flowdat)
+summary(a.flow)
+plot(a.flow)
+
+
+flow.sd <- summarySE(data=flowdat,measurevar="speed_ms",groupvars="site")
+flow.sd
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r script graveyard, include=FALSE, eval=FALSE}
+#line plots - not using
+nuts$month <- as.factor(nuts$month)
+
+ggplot(nuts,aes(x=month,y=Nitrates_NO3_uM,group=habitat,color=habitat))+
+  geom_path()+
+  facet_wrap(~year)
+
+# Fancy rain plots - not using {.tabset}
+
+#install.packages("ggdist")
+library(ggdist)
+#install.packages("gghalves")
+library(gghalves)
+
+gg.phos <- ggplot(nuts, aes(x = habitat, y = Phosphate_P2O5_uM,color=habitat,shape=habitat,fill=habitat))+ 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    justification = -.2, 
+    .width = 0, 
+    point_colour = NA,
+    alpha=0.5
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    alpha=0.5
+  ) +
+  gghalves::geom_half_point(
+    side = "l", 
+    range_scale = .4,
+    alpha=0.5
+  )+
+  theme_cowplot()+
+  xlab("Habitat")+
+  theme(legend.position="none")+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Phosphates (µM)")
+gg.phos
+
+gg.nita <- ggplot(nuts, aes(x = habitat, y = Nitrates_NO3_uM,color=habitat,shape=habitat,fill=habitat))+ 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    justification = -.2, 
+    .width = 0, 
+    point_colour = NA,
+    alpha=0.5
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    alpha=0.5
+  ) +
+  gghalves::geom_half_point(
+    side = "l", 
+    range_scale = .4,
+    alpha=0.5
+  )+
+  theme_cowplot()+
+  xlab("Habitat")+
+  theme(legend.position="none")+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Nitrates (µM)")
+gg.nita
+
+gg.niti <- ggplot(nuts, aes(x = habitat, y = Nitrites_NO2_uM,color=habitat,shape=habitat,fill=habitat))+ 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    justification = -.2, 
+    .width = 0, 
+    point_colour = NA,
+    alpha=0.5
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    alpha=0.5
+  ) +
+  gghalves::geom_half_point(
+    side = "l", 
+    range_scale = .4,
+    alpha=0.5
+  )+
+  theme_cowplot()+
+  xlab("Habitat")+
+  theme(legend.position="none")+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Nitrites (µM)")
+gg.niti
+
+gg.sili <- ggplot(nuts, aes(x = habitat, y = Silice_SiO2_uM,color=habitat,shape=habitat,fill=habitat))+ 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    justification = -.2, 
+    .width = 0, 
+    point_colour = NA,
+    alpha=0.5
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    alpha=0.5
+  ) +
+  gghalves::geom_half_point(
+    side = "l", 
+    range_scale = .4,
+    alpha=0.5
+  )+
+  theme_cowplot()+
+  xlab("Habitat")+
+  theme(legend.position="none")+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Silica (µM)")
+gg.sili
+
+gg.ammo <- ggplot(nuts, aes(x = habitat, y = Ammonium_NH4_uM,color=habitat,shape=habitat,fill=habitat))+ 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    justification = -.2, 
+    .width = 0, 
+    point_colour = NA,
+    alpha=0.5
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    alpha=0.5
+  ) +
+  gghalves::geom_half_point(
+    side = "l", 
+    range_scale = .4,
+    alpha=0.5
+  )+
+  theme_cowplot()+
+  xlab("Habitat")+
+  theme(legend.position="none")+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_fill_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("Ammonium (µM)")
+gg.ammo
+
+#variance - nothing interesting here
+
+#library(car)
+        
+# nuts$habitat <- as.factor(nuts$habitat)
+# leveneTest(Phosphate_P2O5_uM~habitat,data=nuts)
+# leveneTest(Nitrates_NO3_uM~habitat,data=nuts)
+# leveneTest(Nitrites_NO2_uM~habitat,data=nuts)
+# leveneTest(Silice_SiO2_uM~habitat,data=nuts)
+# leveneTest(Ammonium_NH4_uM~habitat,data=nuts)
+
+#range - nothing interesting
+
+# nuts.back <- subset(nuts,habitat=="Back reef")
+# nuts.fore <- subset(nuts,habitat=="Fore reef")
+# 
+# var(nuts.back$Phosphate_P2O5_uM)
+# var(nuts.fore$Phosphate_P2O5_uM)
+# 
+# (max(nuts.back$Phosphate_P2O5_uM)-min(nuts.back$Phosphate_P2O5_uM))
+# (max(nuts.fore$Phosphate_P2O5_uM)-min(nuts.fore$Phosphate_P2O5_uM))
+# 
+# var(nuts.back$Nitrates_NO3_uM)
+# var(nuts.fore$Nitrates_NO3_uM)
+# 
+# (max(nuts.back$Nitrates_NO3_uM)-min(nuts.back$Nitrates_NO3_uM))
+# (max(nuts.fore$Nitrates_NO3_uM)-min(nuts.fore$Nitrates_NO3_uM))
+# 
+# var(nuts.back$Nitrites_NO2_uM)
+# var(nuts.fore$Nitrites_NO2_uM)
+# 
+# (max(nuts.back$Nitrites_NO2_uM)-min(nuts.back$Nitrites_NO2_uM))
+# (max(nuts.fore$Nitrites_NO2_uM)-min(nuts.fore$Nitrites_NO2_uM))
+# 
+# var(nuts.back$Nitrites_NO2_uM)
+# var(nuts.fore$Nitrites_NO2_uM)
+# 
+# (max(nuts.back$Nitrites_NO2_uM)-min(nuts.back$Nitrites_NO2_uM))
+# (max(nuts.fore$Nitrites_NO2_uM)-min(nuts.fore$Nitrites_NO2_uM))
+```
+
+```{r session info}
+sessionInfo()
+```
