@@ -1,7 +1,7 @@
 # 2brad_moorea
 Scripts for analyzing my 2bRAD data from corals in French Polynesia (modified from Dr. Mikhail Matz's scripts at https://github.com/z0on/2bRAD_denovo)</br>
 
-Head straight to the 'walkthrough' files for each part for instructions.
+Head straight to the 'walkthrough' files for each part for instructions, except for the pop structure folder which is called 'part3_popstructure.Rmd'
 
 Part 1: Genome</br>
 Placing & indexing reference genome - if you don't have a reference genome you'll have to follow Misha's instructions at https://github.com/z0on/2bRAD_denovo, the rest of my instructions will also be missing any 'de novo' specific commands
