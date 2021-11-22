@@ -1,0 +1,235 @@
+#2bRAD analysis 
+#following Mikhail Matz's script from https://github.com/z0on/2bRAD_denovo/blob/master/2bRAD_README.txt
+#edits by Nicola Kriefall [thenicolakriefall(at)gmail.com] for BU's SCC
+
+#beginning:
+#always module load all of the things (these are already installed on BU's computer cluster):
+
+#general tools - you might not end up needing all of these. Instructions for downloading some of them are in Misha's README above
+module load perl
+module load bowtie
+module load samtools
+module load java
+module load fastx-toolkit
+module load bowtie2
+module load R
+module load vcftools
+
+#required to load Misha's scripts
+module load python2
+module load vcftools
+module load angsd
+module load plink/1.90b6.4
+module load admixture
+module load ngsld
+module load ngsadmix
+module load ngspopgen
+module load ngsrelate
+module load 2brad_denovo
+
+#intro------------------------------------------------------------------------------------
+#cd to where your files are
+cd /projectdir/etc
+
+#1. Presumedly, you have your Illumina files in .fastq format
+#	a. Possibly compressed, so unzip them. Mine were gzipped:
+gunzip *.fastq
+#regular unzipping:
+#unzip *.fastq
+
+#Pulled the following information from this website: http://support.illumina.com/content/dam/illumina-support/help/BaseSpaceHelp_v2/Content/Vault/Informatics/Sequencing_Analysis/BS/swSEQ_mBS_FASTQFiles.htm
+
+#Here's an example of what the file name looks like:
+#A_CCGCGT_L006_R1_001.fastq
+#	A = a sample name for all those with the barcode "CCGCGT"
+#	CCGCGT = unique 6-base barcode in the Illumina adaptors, used by the sequencer to pull out your samples
+#		adaptor: CAAGCAGAAGACGGCATACGAGAT [barcode] GTGACTGGAGTTCAGACGTGTGCTCTTCCGAT
+# 	L006 = lane number
+#	R1 = The read (direction of sequencing). This run didn't have R2, which would be the reverse direction
+#	001 = The last segment is always 001. 
+
+#Within the file:
+head -50 [FILENAME].fastq
+#output -->
+#	@HWI-D00289:176:C6G3TANXX:8:1101:5522:1992 1:N:0:GCCGCG
+#	NCGTCCCGTTAGTTTTCCCGAGAAAATTGCCGAGCGAAGGATACCAAGATC
+#	+
+#	#<<BBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+#	@HWI-D00289:176:C6G3TANXX:8:1101:9186:1998 1:N:0:GCCGCG
+#	NTATCCGCAATCCTCTAGCGAATAAGATGCGCTCCGATAGCTGTGTAGATC
+#	+
+#	#<<BBFFFFFFFFFBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+#	@HWI-D00289:176:C6G3TANXX:8:1101:9219:2000 1:N:0:GCCGCG
+#	NTGTCCAGTGAATGTATAGCACGAAATTCGTCGGAGAGACTGGTGTAGATC
+#	+
+#	#<<BBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+#		LINE 1 = SEQUENCE IDENTIFIER
+#			@ = beginning of read, can be used with "grep" to do read counts!
+#			HWI-D00289 = instrument
+#			176 = run id
+#			C6G3TANXX = flow cell id
+#			8 = flow cell lane
+#			1101 = file number
+#			####:#### (last eight numbers) = x:y
+#			1:N:0:GCCGCG = 1 or 2 (pair):filtered? (yes/no):control spec (always 0):sample number
+#		LINE 2 = RAW SEQUENCE [~51 characters]
+#			Ends with universal adaptor (in this case, AGATC, which we call "AGAT?" in deduplicating step
+#			Second to last = One of 12 barcodes, such as "ACCA" or "GTGT"
+#			Also contains the recognition site for the BcgI enzyme: BcgI: '.{12}CGA.{6}TGC.{12}|.{12}GCA.{6}TCG.{12}'
+#		LINE 4 = QUALITY SCORES
+#			See https://support.illumina.com/help/BaseSpace_OLH_009008/Content/Source/Informatics/BS/QualityScoreEncoding_swBS.htm
+#			Scores go from 0-40, 40 being highest
+
+#I had to concatenate my 2015 data from multiple lanes - skip if you have unique samples in each lane:
+#I used 'cat lane1.fastq lane2.fastq lane3.fastq > fastq' instead of 'ngs_concat' perl script from Misha:
+#cat A_CCGCGT_L006_R1_001.fastq A_CCGCGT_L007_R1_001.fastq A_CCGCGT_L008_R1_001.fastq > A_2015.fastq
+#cat B_CGCCCT_L006_R1_001.fastq B_CGCCCT_L007_R1_001.fastq B_CGCCCT_L008_R1_001.fastq > B_2015.fastq
+#cat C_CTGCAG_L006_R1_001.fastq C_CTGCAG_L007_R1_001.fastq C_CTGCAG_L008_R1_001.fastq > C_2015.fastq
+#cat D_GAAGTT_L006_R1_001.fastq D_GAAGTT_L007_R1_001.fastq D_GAAGTT_L008_R1_001.fastq > D_2015.fastq
+#cat E_GCACCC_L006_R1_001.fastq E_GCACCC_L007_R1_001.fastq E_GCACCC_L008_R1_001.fastq > E_2015.fastq
+#cat F_GCAGGA_L006_R1_001.fastq F_GCAGGA_L007_R1_001.fastq F_GCAGGA_L008_R1_001.fastq > F_2015.fastq
+#cat G_GCCGCG_L006_R1_001.fastq G_GCCGCG_L007_R1_001.fastq G_GCCGCG_L008_R1_001.fastq > G_2015.fastq
+
+#Trimming & deduplicating fastq files
+2bRAD_trim_launch_dedup.pl fastq adaptor="AGAT?" sampleID=2 > trims
+#had to change the sampleID location for the concatenated ones:
+#2bRAD_trim_launch_dedup.pl fastq adaptor="AGAT?" sampleID=1 > trims
+
+nano trims
+#added this text to the top of 'trims' file:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N trims # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com #your email notification
+#$ -m be
+
+#don't add this text to trims, instructions to leave nano:
+#exit = ctrl + c
+#save = y
+#enter
+
+#submit job
+qsub trims
+
+#check job status 
+qstat -u username
+
+#had to do this other line to catch some samples processed an old way:
+#2bRAD_trim_launch.pl fastq barcode2=4 adaptor=“AGATCGGAA?” sampleID=2 > trims2
+#qsub trims
+
+#creates a list of the fastq files, launches trim2bRAD_2barcodes_dedup.pl for each file
+#trim2bRAD_2barcodes_dedup.pl does the following:
+#- Filters 2bRAD fastq reads to leave only those with a 100% matching restriction site,
+#degenerate 5'-leader, secondary 3'-barcode, and adaptor on the far 3'end, 
+#trims away everything except the IIb-fragment itself;
+#
+#- Deduplicates: removes all but one read sharing the same 64-fold degenerate
+#leader, the first 34 bases of the insert sequence, and secondary barcode
+#(this results in 128-fold dynamic range: 64-fold degeneracy x 2 strand orientations);
+#
+#- Splits reads into separate files according to secondary barcode.
+#
+#Writes trimmed fastq files named according to the secondary barcodes detected. 
+#creates .tr0 files
+#creates an output file that has de-duplication counts information (trims.o*)
+#to see counts info:
+nano trims.o*
+#counts for files processed the old way:
+#trim2.0 fastq=MO_75_S4_L002_R1_001.fastq adaptor="AGATCGGAA?"
+#trim2.0 = 2bRAD_trim_launch.pl with hashtags removed from last 2 parts
+
+#Quality filtering
+ls *.tr0 | perl -pe 's/^(\S+)\.tr0$/cat $1\.tr0 \| fastq_quality_filter -q 20 -p 100 >$1\.trim/' > filt0
+# NOTE: run the next line ONLY if your qualities are 33-based 
+# (if you don't know just try to see if it works eventually, if you get errors from fastx_toolkit, try the other one):
+cat filt0 | perl -pe 's/filter /filter -Q33 /' > filt
+#if you did NOT run the line above, run this one (after removing # symbol):
+# 	mv filt0 filt
+
+nano filt
+#added this text to the top of 'filt':
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N filt # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+
+#leave nano & save - see instructions above
+qsub filt
+
+#input = .tr0 files, output = .trim files
+#-q 20 = minimum quality score to keep is 20
+#-p minimum percent of bases that must have 20 quality
+#quality scores are in Sanger format (Phred+33) = what Misha means by 33-based quality scores
+#samples are ready for mapping to reference genome!
+
+#mapping to genome------------------------------------------------------------------------
+export GENOME_FASTA=Amil.fasta
+2bRAD_bowtie2_launch.pl '\.trim$' $GENOME_FASTA > bt2
+#Prints out list of commands to bowtie2-map the trimmed 36b 2bRAD reads
+
+nano bt2
+#add to the top of bt2 file:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N bt2 # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+
+#leave nano
+qsub bt2
+
+#within bt2 = [example line]
+#bowtie2 --no-unal --score-min L,16,1 --local -L 16 -x Acropora_hyacinthus_ccn.fasta -U TI_516.trim -S TI_516.trim.bt2.sam
+#breakdown =
+#--no-unal = suppress SAM records for unaligned reads
+#--score-min L,16,1 [L = linear --> f(x) = 16 + 1 * x]
+#--local -L 16 = Sets the length of the seed substrings to align during multiseed alignment. 
+#Smaller values make alignment slower but more sensitive
+
+nano bt2.e*
+#tells you mapping efficiencies of all of them
+#find out mapping efficiency for a particular input file (O9.fastq in this case)
+#(assuming all input files have different numbers of reads)
+grep -E '^[ATGCN]+$' TI_544.*trim | wc -l | grep -f - bt2.e* -A 4 
+
+#next stage is compressing, sorting and indexing the SAM files, so they become BAM files:
+ls *.bt2.sam > sams
+export GENOME_REF=Amil.fasta
+cat sams | perl -pe 's/(\S+)\.sam/samtools import \$GENOME_REF $1\.sam $1\.unsorted\.bam && samtools sort -o $1\.sorted\.bam $1\.unsorted\.bam && picard AddOrReplaceReadGroups INPUT=$1\.sorted\.bam OUTPUT=$1\.bam RGID=group1 RGLB=lib1 RGPL=illumina RGPU=unit1 RGSM=$1 && samtools index $1\.bam/' >s2b
+
+nano s2b
+#add to s2b:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N s2b # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+
+#leave nano
+qsub s2b
+
+#inside s2b:
+#The SAM format consists of a header and an alignment section. The binary representation of a SAM file is a 
+#Binary Alignment Map (BAM) file, which is a compressed SAM file. [see wikipedia page on SAM files]
+#Sort function: Sort alignments by leftmost coordinates, or by read name when -n is used. 
+#An appropriate @HD-SO sort order #header tag will be added or an existing one updated if necessary.
+#RGID=group1 [read group id = group1]
+#RGLB=lib1 [read group library required] 
+#RGPL=illumina [read group platform]
+#RGPU=unit1 [read group platform unit = unit1]
+#RGSM=$1 [read group sample name]
+
+#remove unnecessary intermediates
+rm *sorted*
+
+ls *bam | wc -l  # should be the same number as number of trim files
+# BAM files are the input into various genotype calling / popgen programs, this is the main interim result of the analysis. Archive them.

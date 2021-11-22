@@ -1,0 +1,85 @@
+----- Install Bayescan :
+
+cd ~/bin
+wget http://cmpg.unibe.ch/software/BayeScan/files/BayeScan2.1.zip
+unzip BayeScan2.1.zip
+cp BayeScan2.1/binaries/BayeScan2.1_linux64bits bayescan
+chmod +x bayescan
+rm -r BayeScan*
+
+#============= Bayescan: looking for Fst outliers
+
+# Converting vcf (using PGDspider) to Bayescan format: 
+
+# make tab-delimited file called pops.bs LISTING assignments of individuals (as they are named in the vcf file) to populations, for example:
+ind1	pop0
+ind2	pop0
+ind3	pop1
+ind4	pop1
+
+# create a file called vcf2bayescan.spid containing this text:
+echo "############
+# VCF Parser questions
+PARSER_FORMAT=VCF
+# Do you want to include a file with population definitions?
+VCF_PARSER_POP_QUESTION=true
+# Only input following regions (refSeqName:start:end, multiple regions: whitespace separated):
+VCF_PARSER_REGION_QUESTION=
+# What is the ploidy of the data?
+VCF_PARSER_PLOIDY_QUESTION=DIPLOID
+# Only output following individuals (ind1, ind2, ind4, ...):
+VCF_PARSER_IND_QUESTION=
+# Output genotypes as missing if the read depth of a position for the sample is below:
+VCF_PARSER_READ_QUESTION=
+# Take most likely genotype if "PL" or "GL" is given in the genotype field?
+VCF_PARSER_PL_QUESTION=true
+# Do you want to exclude loci with only missing data?
+VCF_PARSER_EXC_MISSING_LOCI_QUESTION=false
+# Select population definition file:
+VCF_PARSER_POP_FILE_QUESTION=./pops.bs
+# Only output SNPs with a phred-scaled quality of at least:
+VCF_PARSER_QUAL_QUESTION=
+# Do you want to include non-polymorphic SNPs?
+VCF_PARSER_MONOMORPHIC_QUESTION=false
+# Output genotypes as missing if the phred-scale genotype quality is below:
+VCF_PARSER_GTQUAL_QUESTION=
+# GESTE / BayeScan Writer questions
+WRITER_FORMAT=GESTE_BAYE_SCAN
+# Specify which data type should be included in the GESTE / BayeScan file  (GESTE / BayeScan can only analyze one data type per file):
+GESTE_BAYE_SCAN_WRITER_DATA_TYPE_QUESTION=SNP
+############" > vcf2bayescan.spid
+
+#first I did all individuals then I restricted the individuals question depending on the population pairs I was interested in:
+#MNW:
+VCF_PARSER_IND_QUESTION=ind0, ind1, ind2, ind3, ind4, ind5, ind6, ind7, ind8, ind9, ind10, ind11, ind12, ind13, ind14, ind15, ind16, ind17, ind18, ind19, ind20, ind21, ind22, ind23, ind24, ind25, ind26, ind27  
+#MSE: 
+VCF_PARSER_IND_QUESTION=ind28, ind29, ind30, ind31, ind32, ind33, ind34, ind35, ind36, ind37, ind38, ind39, ind40, ind41, ind42, ind43, ind44, ind45, ind46, ind47, ind48, ind49, ind50, ind51, ind52, ind53, ind54, ind55, ind56, ind57, ind58, ind59, ind60, ind61, ind62, ind63, ind64, ind65, ind66
+#TAH:
+VCF_PARSER_IND_QUESTION=ind67, ind68, ind69, ind70, ind71, ind72, ind73, ind74, ind75, ind76, ind77, ind78, ind79, ind80, ind81, ind82, ind83, ind84, ind85, ind86, ind87, ind88, ind89, ind90, ind91, ind92, ind93, ind94, ind95, ind96, ind97, ind98, ind99, ind100, ind101, ind102, ind103, ind104, ind105, ind106, ind107, ind108, ind109, ind110, ind111, ind112, ind113
+
+# converting vcf (either donresult.05.vcf from ANGSD or the one from GATK) to bayescan format
+module load pgdspider
+PGDSpider2-cli -inputfile donresult.05.vcf -outputfile all.baye -spid vcf2bayescan.spid
+
+# launching bayescan (this might take a long time)
+nano all.baye.sh
+
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd #start job in submission directory
+#$ -N all.baye.sh # job name, anything you want
+#$ -l h_rt=36:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+bayescan all.baye -threads=16
+
+#exit all.baye.sh [ctrl + x]
+qsub -pe omp 16 all.baye.sh 
+#uses 16 threads
+
+# transfer fst.txt file to computer & use part4_bayescan_plots.R to examine results
+
+# removing outliers from VCF file
+removeBayescanOutliers.pl bayescan=snp.baye_fst.txt vcf=myresult.vcf FDR=0.5 >myresult_nobs.vcf
+
+#also, use part4_outflank.R to do alternative outlier scan using OutFLANK

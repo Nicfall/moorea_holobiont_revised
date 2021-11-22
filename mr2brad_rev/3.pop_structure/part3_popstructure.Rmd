@@ -1,0 +1,240 @@
+---
+title: "2brad analyses"
+author: "Nicola Kriefall"
+date: "8/27/2021"
+output: html_document
+---
+
+# Finding clones
+
+```{bash, eval=FALSE}
+#from https://github.com/z0on/2bRAD_denovo/blob/master/2bRAD_README.txt
+#^^find instructions for downloading scripts & packages at this link^^
+#edits by Nicola Kriefall thenicolakriefall(at)gmail.com
+
+#bam files created in parts 1 & 2 walkthroughs
+
+#===================== A  N  G  S  D =====================
+
+# "FUZZY genotyping" with ANGSD - without calling actual genotypes but working with genotype likelihoods at each SNP. Optimal for low-coverage data (<10x).
+
+# listing all bam filenames 
+ls *bam > bams
+
+#--------------- finding clones
+
+# Note: PCA and Admixture are not supposed to be run on data that contain clones or genotyping replicates. For PCA, these can be removed without rerunning ANGSD from the IBS distance matrix; but for ngsAdmix ANGSD must be rerun.
+# for my first run through, keeping all samples, will remove clones & genotyping replicates for second run-through
+
+# Generating genotype likelihoods from highly confident (non-sequencing-error) SNPs
+# set minInd to 75-80% of your total number of bams [I did ~80%, 109 samples out of 136 total]
+# if you expect very highly differentiated populations with nearly fixed alternative alleles, remove '-hwe_pval 1e-5' from FILTERS
+# -doGeno 8 : genotype likelihood format setting for ngsLD; if you want to run PCA, use -doGeno 32 (but I recommend using ibsMat for all ordination work)
+
+# Starting angsd with -P the number of parallel processes. Funny but in many cases angsd runs faster on -P 1
+nano angsd.sh
+# add the following text to .sh:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd #start job in submission directory
+#$ -N angsd.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 109 -snp_pval 1e-5 -minMaf 0.1 -minIndDepth 8 -hwe_pval 1e-5"
+TODO="-doMajorMinor 1 -doMaf 1 -doCounts 1 -makeMatrix 1 -doIBS 1 -doCov 1 -doGeno 8 -doVcf 1 -doPost 1 -doGlf 2 -dumpCounts 2"
+angsd -b bams -GL 1 $FILTERS $TODO -P 1 -out myresult
+#exit & save
+
+qsub angsd.sh
+```
+
+use IBS results to look for clones & technical replicates for removal
+sftp (or some other transfer method) to file transfer 'myresult.ibsMat' & 'bams' to your local computer
+my input files are myresult.ibsMat & bams, my output file displaying clones dendrogram is part3_clones_dendro.pdf
+getting rid of all samples with 'd' after the same as these were intentional replicates, also saw 2 other samples that were incidental clones (MNW-F_125 & MNW-B_58), removing from bams file
+
+```{r finding clones}
+##just bams names:
+#bams=read.table("bams")[,1] # list of bam files, in the same order as you did your analysis
+##renamed the long bam file names for plotting:
+bams=read.table("bams_renamedfordendro")[,1] # list of bam files, in the same order as you did your analysis
+goods=c(1:length(bams))
+
+#-------------
+# clustering / PCoA based on identity by state (IBS) based on single read resampling
+# (for low and/or uneven coverage)
+ma = as.matrix(read.table("myresult.ibsMat"))
+ma=ma[goods,goods]
+dimnames(ma)=list(bams[goods],bams[goods])
+hc=hclust(as.dist(ma),"ave")
+plot(hc,cex=0.3,xlab="")
+abline(h=0.25,col="#ED1C24",lty="longdash")
+# this shows how similar clones are
+#my output is named 'part3_clones_dendro.pdf' in github folder
+#all of my 'd' (technical replicates) named ones are clones, as expected
+#also going to get rid of two which were unintentionally clones: MNW-F_125 & MNW-B_58
+```
+
+# Site depth
+
+```{bash, eval=FALSE}
+#--------------- assessing site depth
+
+#re-did angsd without clones (removed the .bam names from 'bams' & named it 'bamscl')
+#remember to change 'minInd' to new 80% (mine is now minInd 99 for 80% from 124 samples)
+
+nano angsd_cl.sh
+#added this to top:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd #start job in submission directory
+#$ -N angsd_cl.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 99 -snp_pval 1e-5 -minMaf 0.1 -minIndDepth 8 -hwe_pval 1e-5"
+TODO="-doMajorMinor 1 -doMaf 1 -doCounts 1 -makeMatrix 1 -doIBS 1 -doCov 1 -doGeno 8 -doVcf 1 -doPost 1 -doGlf 2 -dumpCounts 2"
+angsd -b bamscl -GL 1 $FILTERS $TODO -P 1 -out clresult
+#exit & save
+
+# Assessing average site depth coverage per sample using vcftools:
+gunzip clresult.vcf.gz
+# You have to do this strange thing where you remove "(angsd version)" from the header of your vcf file, or else vcftools won't work
+nano clresult.vcf
+#first line reads:
+##fileformat=VCFv4.2(angsd version)
+# manually delete "(angsd version)" from this line so it just reads "VCFv4.2"
+#exit & save
+
+module load vcftools
+vcftools --vcf clresult.vcf --depth --out clresult
+#results (mean depth of sites per individual) are in a file ending in '.idepth'
+#I transferred it to my desktop & arranged the column smallest -> largest in excel to check it out
+
+#re-ran this step after removing 10 samples with an average of <7 reads, went from 2150 SNPs to 3474
+```
+
+# Overall pop structure
+
+```{bash, eval=FALSE}
+#--------------- now for overall pop structure 
+
+#after looking at my site depths, I decided to get rid of samples with less than an average of 7 reads for my final analysis, increases the number of reliable SNPs you get from the total dataset
+#also removed technical replicates/clones from 'bamscl' file & saved it as 'bamscl_no7'
+#had 136 samples before, now left with 114 (removed 2 incidental clones, 10 tech replicates, 10 samples with less than 7 average reads/site)
+#that reduces my 80% minInd filter down to 91 now
+
+#re-running ANGSD without clones & without poorly covered samples:
+nano angsd_cl_no7.sh
+# added the following text to .sh:
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd #start job in submission directory
+#$ -N angsd_cl_no7.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+FILTERS="-uniqueOnly 1 -remove_bads 1 -minMapQ 20 -minQ 25 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -hetbias_pval 1e-5 -skipTriallelic 1 -minInd 91 -snp_pval 1e-5 -minMaf 0.1 -minIndDepth 8"
+TODO="-doMajorMinor 1 -doMaf 1 -doCounts 1 -makeMatrix 1 -doIBS 1 -doCov 1 -doGeno 8 -doVcf 1 -doPost 1 -doGlf 2 -dumpCounts 2"
+angsd -b bamscl_no7 -GL 1 $FILTERS $TODO -P 1 -out clresult_no7
+#exit & save
+
+qsub angsd_cl_no7.sh
+
+#pcangsd program: http://www.popgen.dk/software/index.php/PCAngsd
+python ~/bin/pcangsd/pcangsd.py -beagle clresult_no7.beagle.gz -o clresult_no7 -threads 4
+
+#transferred resulting clresult_no7.cov file to local working directory to use in 'part3_plotting_popstruct.R'
+#I generated bamscl_no7_pops file by hand in Excel: text file with 2 columns, first is your sample bam, second is your variable of interest (or more columns with more variables)
+
+#how many SNPs?
+NSITES=`zcat clresult_no7.mafs.gz | wc -l`
+echo $NSITES
+#I have 3475 sites at 0.1 maf
+
+#--------------- K plots
+
+# NgsAdmix for K from 2 to 5 : do not run if the dataset contains clones or genotyping replicates!
+for K in `seq 2 5` ; 
+do 
+NGSadmix -likes clresult_no7.beagle.gz -K $K -P 10 -o don_k${K};
+done
+
+# transfer .qopt files to local working directory
+
+# alternatively, to use real ADMIXTURE on called SNPs (requires plink and ADMIXTURE):
+# gunzip vcf file if you didn't already & remove '(angsd version)' from top of vcf file
+
+module load plink/1.90b6.4
+module load admixture
+
+gunzip clresult_no7.vcf.gz
+
+plink --vcf clresult_no7.vcf --make-bed --allow-extra-chr 0 --out done
+for K in `seq 1 5`; \
+do admixture --cv clresult_no7.bed $K | tee clresult_no7_${K}.out; done
+
+# which K is least CV error?
+grep -h CV clresult_no7_*.out
+
+#CV error (K=1): 0.60548
+#CV error (K=2): 0.62195
+#CV error (K=3): 0.63702
+#CV error (K=4): 0.66038
+#CV error (K=5): 0.67912
+#lowest error for me was K=1
+
+# sftp the *.Q files to laptop, plot it in R:
+# plot below (will require minor editing - population names)
+# will also needs pops file
+
+#--------------- LD
+
+# LD: (use rEM for WGCNA, to look for signatures of polygenic selection):
+module load ngsld
+NS=`zcat donresult.geno.gz | wc -l`
+NB=`cat bams_no8 | wc -l`
+zcat donresult.mafs.gz | tail -n +2 | cut -f 1,2 > don.sites
+ngsLD --geno donresult.geno.gz --probs 1 --n_ind $NB --n_sites $NS --max_kb_dist 0 --pos don.sites --out don.LD --n_threads 1 --extend_out 1
+#probs = is the input likelihoods or posterior probabilities, default looks to be false, add something to get true
+#max_kb_dist set to 0 means it will do all pairwise comparisons
+#more info here: https://github.com/fgvieira/ngsLD/blob/master/README.md
+#generates output TSV file with LD results for all pairs of sites for which LD was calculated, where the first two 
+#columns are positions of the SNPs, the third column is the distance (in bp) between the SNPs, and the following 4 
+#columns are the various measures of LD calculated (r^2 from pearson correlation between expected genotypes, D 
+#from EM algorithm, D' from EM algorithm, and r^2 from EM algorithm). If the option --extend_out is used, 
+#then an extra 8 columns are printed with number of samples, minor allele frequency (MAF) of both loci, 
+#haplotype frequencies for all four haplotypes, and a chi2 (1 d.f.) for the strength of association (Collins et al., 1999).
+
+#another note from the author:
+#For some analyses, linked sites are typically pruned since their presence can bias results. 
+#You can use the script scripts/prune_graph.pl to prune your dataset and get a list of unlinked sites.
+
+#to remove linked sites:
+module load perl
+
+nano prune.sh
+#!/bin/bash -l
+#$ -V # inherit the submission environment
+#$ -cwd #start job in submission directory
+#$ -N prune.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+#prune_graph.pl --in_file don.LD --max_kb_dist 100 --min_weight 0.5 --out don_unlinked_100kb.id
+
+#may play around with max_kb_dist? currently, defaults
+#exit nano
+qsub prune.sh
+#generated long list of sites that aren't linked, ~200 were linked that the program took out - took them out of vcf file:
+
+module load vcftools
+#output from 'unlinked' output had ':' in between chromosome & position, vcftools requires a tab to separate chromosome from position
+sed 's/:/\t/' don_unlinked_100kb.id > unlinked_reformat
+vcftools --vcf donresult.vcf --out don_unlinked --positions unlinked_reformat
+#should leave you with a new vcf without linked sites
+#I re-did analyses without them but nothing changed
+```
+
+See part3_plotting_popstruct.R for plotting

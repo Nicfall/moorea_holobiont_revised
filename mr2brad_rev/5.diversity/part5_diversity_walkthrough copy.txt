@@ -1,0 +1,67 @@
+#Estimating heterozygosity per sample
+#Input files: .bam 
+#Instruction from angsd:
+#http://www.popgen.dk/angsd/index.php/Heterozygosity
+
+#angsd instructions say this: [one of my bams used as an example]
+angsd -i MNWI_51.trim.bt2.bam -anc Amil.fasta -dosaf 1 -fold 1 -minQ 20 -minmapq 30 -r chr1 -gl 1 -out MNWI_51.out
+#I added -gl 1, got an error without it even though it wasn't in the instructions
+#also need to add the 'out' file
+realSFS MNWI_51.out.saf.idx > est_51.ml
+#opened est_51.ml, manually calculated heterozyogsity
+#[column 2/sum of both columns]
+
+#now doing it for all my samples:
+#for file in `cat bams_no8`
+#do
+#	echo "angsd -i $file -anc Amil.fasta -dosaf 1 -fold 1 -minQ 20 -minmapq 30 -gl 1 -out $file.out" >> het.sh
+#done
+
+#redoing without folding & with depth filter:
+for file in `cat ../bams_no8`
+do
+	echo "angsd -i ../$file -anc ../Amil.fasta -dosaf 1 -minQ 30 -minMapQ 25 -minIndDepth 8 -p 1 -gl 1 -out $file.out_depth" >> het_depth.sh
+done
+
+#check out levels of polymorphism vs. levels of heterozygosity?
+
+#now submitting het.sh, adding this to the top: 
+#!/bin/bash
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N het_rd2.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+
+qsub het_rd2.sh
+
+#the next step
+for file in *.out_depth.saf.idx 
+do
+	echo "realSFS $file > $file.ml" >> est.sh
+done
+	
+#now adding stuff to the top & submitting est.sh:
+#!/bin/bash
+#$ -V # inherit the submission environment
+#$ -cwd # start job in submission directory
+#$ -N est.sh # job name, anything you want
+#$ -l h_rt=24:00:00
+#$ -M thenicolakriefall@gmail.com
+#$ -m be
+
+qsub est.sh
+
+#next making 3 text files with my separate data to calculate results in R, I'm sure there's an easier way but I don't know it
+
+for file in *.ml
+do
+	echo $file >> name
+	cut -d " " -f 1 $file >> v1
+	cut -d " " -f 2 $file >> v2
+done
+
+#combining these three text files into 1 for analysis in R
+paste name v1 v2 | column -s $'\t' -t > part5_het_out_depth.txt
+#transferring part5_het_out_depth.txt to R script 'part5_het.R'
