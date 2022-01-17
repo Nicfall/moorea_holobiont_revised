@@ -16,7 +16,7 @@ output:
 #work computer 
 #setwd("~/nicfall drive/Moorea_revisions/env_revised")
 #home computer
-setwd("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/")
+#setwd("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/")
 ```
 
 ## Setup - load packages
@@ -29,12 +29,13 @@ library(colorBlindness)
 library(scales)
 library(bestNormalize)
 library(Rmisc)
+library(ggpubr)
 ```
 
 # Substrate composition
 
 ```{r data processing}
-sub.tah <- read.csv('substrate.csv',header=TRUE)
+sub.tah <- read.csv('/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
 
 sub <- subset(sub.tah,Marine.Area!="Tahiti Faaa")
 
@@ -57,6 +58,7 @@ levels(sub$Habitat)
 
 ##only interested in 2013 - year of collection
 sub13 <- subset(sub,Year=="2013")
+sub14 <- subset(sub,Year=="2014")
 ```
 
 ## Plots {.tabset}
@@ -65,6 +67,13 @@ sub13 <- subset(sub,Year=="2013")
 
 ```{r plot2}
 ggplot(data=sub13, aes(x=Habitat, y=prop.test, fill=Substrate)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')
+
+ggplot(data=sub14, aes(x=Habitat, y=prop.test, fill=Substrate)) +
   geom_bar(stat="identity")+
   facet_wrap(~Marine.Area)+
   theme_cowplot()+
@@ -98,6 +107,24 @@ sub3
 #cvdPlot(sub3)
 
 #ggsave("substrate_3cats.png",height=3.5) #can also go back to default if square
+
+sub14$Substrate <- gsub(" ","_",sub14$Substrate)
+
+sub14$sub_cats <- recode(sub14$Substrate, Acropora="Coral", Asparagopsis="Algae", Cyanophyceae="Algae", Dead_coral="Abiotic substrata", Dictyota="Algae", Halimeda="Algae", Macroalgae="Algae", Millepora="Coral", Montastrea="Coral", Montipora="Coral", Napopora="Coral", Pavement="Abiotic substrata", Pavona="Coral", Pocillopora="Coral", Porites="Coral", Psammocora="Coral", Rubble="Abiotic substrata", Sand="Abiotic substrata", Stegastes_Turf="Algae", Synarea="Coral", Turbinaria="Coral")
+
+pal <- hcl.colors(12,"Tofino")
+show_col(pal)
+colorz <- c("#3B415E","#8FC67C","#818CC0")
+
+sub4 <- ggplot(data=sub14, aes(x=Habitat, y=prop.test, fill=sub_cats)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+ #just need to remove 'nrow' here to go back to grid
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')+
+  scale_fill_manual(values=colorz,name="Substrate",labels=c("Abiotic","Algae","Coral"))
+
+sub4
 ```
 
 ### Figure - medium categories
@@ -106,13 +133,13 @@ sub3
 sub13$sub_cats_med <- recode(sub13$Substrate, Acropora="Coral - Acropora", Asparagopsis="Algae - Asparagopsis", Cyanophyceae="Algae - Cyanophyceae", Dead_coral="Abiotic (e.g. rubble, sand)", Dictyota="Algae - Dictyota", Halimeda="Algae - Halimeda", Macroalgae="Algae - Macroalgae", Millepora="Coral - Millepora", Montastrea="Coral - Montastrea", Montipora="Coral - Montipora", Napopora="Coral - Napopora", Pavement="Abiotic (e.g. rubble, sand)", Pavona="Coral - Pavona", Pocillopora="Coral - Pocillopora", Porites="Coral - Porites", Psammocora="Coral - Psammocora", Rubble="Abiotic (e.g. rubble, sand)", Sand="Abiotic (e.g. rubble, sand)", Stegastes_Turf="Algae - Stegastes Turf", Synarea="Coral - Synarea", Turbinaria="Coral - Turbinaria")  
 
 #greens for algae
-pal.gr <- hcl.colors(5,"Greens")
-show_col(pal.gr)
-pal.gr
+#pal.gr <- hcl.colors(5,"Greens")
+#show_col(pal.gr)
+#pal.gr
 #"#004616" "#30893B" "#81C07A" "#CAE8C1" "#F6FBF4"
-pal.bl <- hcl.colors(9,"BuPu")
-show_col(pal.bl)
-pal.bl
+#pal.bl <- hcl.colors(9,"BuPu")
+#show_col(pal.bl)
+#pal.bl
 #"#540046" "#6E2072" "#8346A1" "#8674B8" "#9099CA" "#A3BAD9" "#BED6E6" "#DBECF3" "#F2FBFC"
 
 colorz2 <- c("grey","#004616","#30893B","#81C07A","#CAE8C1","#F6FBF4","#540046","#6E2072","#8346A1","#8674B8","#9099CA","#A3BAD9","#BED6E6","#DBECF3","#F2FBFC")
@@ -128,6 +155,38 @@ sub.med <- ggplot(data=sub13, aes(x=Habitat, y=prop.test, fill=sub_cats_med)) +
 sub.med
 #ggsave("substrate_medcats.png",height=4) #can also go back to default if square
 #cvdPlot(sub.med)
+
+sub14$sub_cats_med <- recode(sub14$Substrate, Acropora="Coral - Acropora", Asparagopsis="Algae - Asparagopsis", Cyanophyceae="Algae - Cyanophyceae", Dead_coral="Abiotic (e.g. rubble, sand)", Dictyota="Algae - Dictyota", Halimeda="Algae - Halimeda", Macroalgae="Algae - Macroalgae", Millepora="Coral - Millepora", Montastrea="Coral - Montastrea", Montipora="Coral - Montipora", Napopora="Coral - Napopora", Pavement="Abiotic (e.g. rubble, sand)", Pavona="Coral - Pavona", Pocillopora="Coral - Pocillopora", Porites="Coral - Porites", Psammocora="Coral - Psammocora", Rubble="Abiotic (e.g. rubble, sand)", Sand="Abiotic (e.g. rubble, sand)", Stegastes_Turf="Algae - Stegastes Turf", Synarea="Coral - Synarea", Turbinaria="Coral - Turbinaria")  
+
+#greens for algae
+pal.gr <- hcl.colors(5,"Greens")
+show_col(pal.gr)
+pal.gr
+#"#004616" "#30893B" "#81C07A" "#CAE8C1" "#F6FBF4"
+pal.bl <- hcl.colors(9,"BuPu")
+show_col(pal.bl)
+pal.bl
+#"#540046" "#6E2072" "#8346A1" "#8674B8" "#9099CA" "#A3BAD9" "#BED6E6" "#DBECF3" "#F2FBFC"
+
+colorz2 <- c("grey","#004616","#30893B","#81C07A","#CAE8C1","#F6FBF4","#540046","#6E2072","#8346A1","#8674B8","#9099CA","#A3BAD9","#BED6E6","#DBECF3","#F2FBFC")
+
+sub.med2 <- ggplot(data=sub14, aes(x=Habitat, y=prop.test, fill=sub_cats_med)) +
+  geom_bar(stat="identity")+
+  facet_wrap(~Marine.Area)+ #just need to remove 'nrow' here to go back to grid
+  theme_cowplot()+
+  ylab('Relative proportion')+
+  xlab('Reef zone')+
+ scale_fill_manual(values=colorz2,name="Substrate")
+
+sub.med2
+#ggsave("substrate_medcats.png",height=4) #can also go back to default if square
+#cvdPlot(sub.med)
+```
+
+## Synthesizing
+
+```{r}
+ggarrange(sub.med,sub.med2,common.legend=TRUE,legend="right")
 ```
 
 ```{r, eval=FALSE, include=FALSE}
@@ -158,8 +217,111 @@ sub.med
 # Nutrients
 
 ```{r read in nutrient data}
-nuts <- read.csv("nuts_13-14_renamed.csv",header=T)
+nuts <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
 str(nuts)
+```
+
+## From revisions - by month {.tabset}
+
+### Phosphate revised
+
+```{r}
+nuts$ym <- paste0(nuts$year,"_",nuts$month)
+nuts$date2 <- as.Date(nuts$date,"%m/%d/%y")
+str(nuts)
+
+gg.new.pho <- ggplot(nuts,aes(x=date2,y=Phosphate_P2O5_uM,color=habitat,group=habitat,shape=habitat))+
+  geom_line()+
+  theme_cowplot()+
+  geom_point()+
+  geom_vline(xintercept=as.numeric(as.Date("2013-07-26")),linetype=4)+
+  geom_vline(xintercept=as.numeric(as.Date("2013-08-09")),linetype=4)+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  #theme(legend.position="none")+
+  xlab("")+
+  ylab("Phosphates (µM)")+
+  labs(color="Habitat",shape="Habitat")
+gg.new.pho
+```
+
+### Nitrates revised
+
+```{r}
+gg.new.nia <- ggplot(nuts,aes(x=date2,y=Nitrates_NO3_uM,color=habitat,group=habitat,shape=habitat))+
+  geom_line()+
+  theme_cowplot()+
+  geom_point()+
+  geom_vline(xintercept=as.numeric(as.Date("2013-07-26")),linetype=4)+
+  geom_vline(xintercept=as.numeric(as.Date("2013-08-09")),linetype=4)+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  #theme(legend.position="none")+
+  xlab("")+
+  ylab("Nitrates (µM)")+
+  labs(color="Habitat",shape="Habitat")
+gg.new.nia
+```
+
+### Nitrites revised
+
+```{r}
+gg.new.nii <- ggplot(nuts,aes(x=date2,y=Nitrites_NO2_uM,color=habitat,group=habitat,shape=habitat))+
+  geom_line()+
+  theme_cowplot()+
+  geom_point()+
+  geom_vline(xintercept=as.numeric(as.Date("2013-07-26")),linetype=4)+
+  geom_vline(xintercept=as.numeric(as.Date("2013-08-09")),linetype=4)+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  #theme(legend.position="none")+
+  xlab("")+
+  ylab("Nitrites (µM)")+
+  labs(color="Habitat",shape="Habitat")
+gg.new.nii
+```
+
+### Silica revised
+
+```{r}
+gg.new.sil <- ggplot(nuts,aes(x=date2,y=Silice_SiO2_uM,color=habitat,group=habitat,shape=habitat))+
+  geom_line()+
+  theme_cowplot()+
+  geom_point()+
+  geom_vline(xintercept=as.numeric(as.Date("2013-07-26")),linetype=4)+
+  geom_vline(xintercept=as.numeric(as.Date("2013-08-09")),linetype=4)+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  #theme(legend.position="none")+
+  xlab("")+
+  ylab("Silica (µM)")+
+  labs(color="Habitat",shape="Habitat")
+gg.new.sil
+```
+
+### Ammonium revised
+
+```{r}
+gg.new.amm <- ggplot(nuts,aes(x=date2,y=Ammonium_NH4_uM,color=habitat,group=habitat,shape=habitat))+
+  geom_line()+
+  theme_cowplot()+
+  geom_point()+
+  geom_vline(xintercept=as.numeric(as.Date("2013-07-26")),linetype=4)+
+  geom_vline(xintercept=as.numeric(as.Date("2013-08-09")),linetype=4)+
+  scale_shape_manual(values=c(16,15))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  #theme(legend.position="none")+
+  xlab("")+
+  ylab("Ammonium (µM)")+
+  labs(color="Habitat",shape="Habitat")
+gg.new.amm
+```
+
+## Results summarized - revised
+
+```{r multipanel revised}
+ggarrange(gg.new.pho,gg.new.nia,gg.new.nii,gg.new.sil,gg.new.amm,labels="AUTO",common.legend=TRUE,legend="right",nrow=5)
+#ggsave("env_nutrients_revised.pdf",height=12)
 ```
 
 ## Box plots
@@ -329,7 +491,9 @@ ggarrange(gg.pho,gg.nia,gg.nii,gg.sil,gg.amm,labels="AUTO")
 # Flow
 
 ```{r flow data}
-flowdat <- read.csv("flow_rates_reformatted.csv",header=T)
+flowdat <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
+
+
 
 ggplot(flowdat,aes(x=site,y=speed_ms,fill=site))+
   geom_boxplot()+
