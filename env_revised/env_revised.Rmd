@@ -14,7 +14,7 @@ output:
 
 ```{r setup, include=FALSE}
 #work computer 
-#setwd("~/nicfall drive/Moorea_revisions/env_revised")
+#setwd("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised")
 #home computer
 #setwd("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/")
 ```
@@ -35,10 +35,14 @@ library(ggpubr)
 # Substrate composition
 
 ```{r data processing}
+<<<<<<< HEAD
 #home comp
 #sub.tah <- read.csv('/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
 #work comp
 sub.tah <- read.csv('~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
+=======
+sub.tah <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/substrate.csv",header=TRUE)
+>>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
 
 sub <- subset(sub.tah,Marine.Area!="Tahiti Faaa")
 
@@ -220,6 +224,7 @@ ggarrange(sub.med,sub.med2,common.legend=TRUE,legend="right")
 # Nutrients
 
 ```{r read in nutrient data}
+<<<<<<< HEAD
 #home comp
 #nuts <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
 #work comp
@@ -235,6 +240,9 @@ str(nuts)
 ```{r}
 nuts$ym <- paste0(nuts$year,"_",nuts$month)
 nuts$date2 <- as.Date(nuts$date,"%m/%d/%y")
+=======
+nuts <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
+>>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
 str(nuts)
 
 gg.new.pho <- ggplot(nuts,aes(x=date2,y=Phosphate_P2O5_uM,color=habitat,group=habitat,shape=habitat))+
@@ -498,9 +506,12 @@ ggarrange(gg.pho,gg.nia,gg.nii,gg.sil,gg.amm,labels="AUTO")
 # Flow
 
 ```{r flow data}
+<<<<<<< HEAD
 #home comp
 #flowdat <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
 #work comp
+=======
+>>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
 flowdat <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
 
 ggplot(flowdat,aes(x=site,y=speed_ms,fill=site))+
@@ -725,3 +736,7 @@ sessionInfo()
 # (max(nuts.back$Nitrites_NO2_uM)-min(nuts.back$Nitrites_NO2_uM))
 # (max(nuts.fore$Nitrites_NO2_uM)-min(nuts.fore$Nitrites_NO2_uM))
 ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
