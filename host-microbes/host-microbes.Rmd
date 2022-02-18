@@ -1,0 +1,1152 @@
+---
+title: "Host x microbes syntheses"
+author: "Nicola G. Kriefall"
+date: "7/21/2021"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+---
+
+# RDA & Mantel
+
+## Setup
+
+```{r packages rda etc.}
+library(vegan)
+library(ggplot2)
+library(ggpubr)
+#BiocManager::install("DESeq2")
+library("DESeq2")
+library(phyloseq)
+
+#setwd("nicfall_drive/Moorea_revisions/host-microbes/")
+#setwd("~/Google Drive (nicfall@bu.edu)/Moorea_revisions/host-microbes")
+setwd("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/host-microbes")
+```
+
+## 2b-RAD x 16S
+
+### RDA
+
+```{r rda code from Misha}
+# reading genetic distances matrix
+ibs <- as.matrix(read.table("clresult.ibsMat"))
+
+bam.ids <- read.table("bamscl copy")
+#remove extra crap from ids
+bam.ids$V2 <- gsub(".trim.bt2.bam","",bam.ids$V1)
+bam.ids$V2 <- gsub("I","-B",bam.ids$V2)
+bam.ids$V2 <- gsub("O","-F",bam.ids$V2)
+bam.ids$V2 <- gsub("T","TNW",bam.ids$V2)
+
+row.names(ibs) <- c(bam.ids$V2)
+colnames(ibs) <- c(bam.ids$V2)
+
+# computing ordination
+ibsord=capscale(as.dist(ibs)~1)
+
+# plotting (for fun)
+plot(ibsord)
+
+# check which eigenvectors are interesting
+plot(ibsord$CA$eig/sum(ibsord$CA$eig))
+
+# choosing only the interesting eigenvectors to correlate with gene expression
+ibs.scores=scores(ibsord,choices=c(1:4),"sites")
+```
+
+Processing 16s table
+
+```{r}
+load("ps.trim copy.RData")
+
+diagdds = phyloseq_to_deseq2(ps.trim, ~zone)
+diagdds
+
+diagdds = estimateSizeFactors(diagdds)
+diagdds = estimateDispersions(diagdds)
+diagvst = getVarianceStabilizedData(diagdds)
+dim(diagvst)
+
+# reading gene expression table (vsd) - can be a variance-stabilized
+# OTU counts table
+ge <- t(diagvst)
+
+#sample data - has to match the ibs names
+samdf <- data.frame(ps.trim@sam_data)
+samdf$ibsnames <- paste(samdf$site_zone,"_",samdf$sample)
+samdf$ibsnames <- gsub(" ","",samdf$ibsnames)
+
+row.names(samdf) <- samdf$id
+ge.names <- merge(samdf,ge,by=0)
+row.names(ge.names) <- ge.names$ibsnames
+
+ge.names.match <- ge.names[,12:234]
+
+#subset the ones that match
+ibs.scores.subset <- ibs.scores[row.names(ibs.scores) %in% c(samdf$ibsnames),]
+ge.subset <- ge.names.match[row.names(ge.names.match) %in% c(row.names(ibs.scores.subset)),]
+
+# testing how much GE variation is explained by IBS eigenvectors
+row.names(ge.subset) == row.names(ibs.scores.subset)
+ge.subset.arr <- ge.subset[order(as.character(row.names(ge.subset))),]
+ibs.scores.arr <- ibs.scores.subset[order(as.character(row.names(ibs.scores.subset))),]
+row.names(ge.subset.arr) == row.names(ibs.scores.arr)
+
+ge.ibs <- rda(ge.subset.arr~ibs.scores.arr)
+
+# plotting correlation of ibs.scores with gene expression ordination
+plot(rda(ge.subset.arr~ibs.scores.arr))
+
+# stats
+anova(ge.ibs,step=1000,perm.max=10000) #no dice
+```
+
+### Mantel
+
+```{r host x bac mantel test}
+#following instructions from here:
+#https://jkzorz.github.io/2019/07/08/mantel-test.html
+#& here:
+#https://www.rdocumentation.org/packages/ape/versions/5.4-1/topics/mantel.test
+
+otu.dist <- vegdist(ge.subset.arr, method="bray")
+
+ibs.subset1 <- ibs[row.names(ibs) %in% c(samdf$ibsnames),]
+ibs.subset <- ibs.subset1[,colnames(ibs.subset1) %in% c(samdf$ibsnames)]
+row.names(ge.subset.arr) == row.names(ibs.subset)
+
+ibs.dist <- as.matrix(ibs.subset)
+
+host.bac.mant <- mantel(ibs.dist,otu.dist, method="spearman",permutations=999,na.rm=TRUE)
+host.bac.mant #no dice
+```
+
+```{r extra notes,eval=FALSE,include=FALSE}
+## notes - clean up
+# Reading notes from Beinart Lab:
+# Mantel test is in the MBE paper
+# also include geography as a factor
+# redundancy analysis
+# 
+# mussel paper in the baltic sea
+```
+
+## 2b-RAD x ITS2
+
+### RDA
+
+```{r host x sym rda}
+ps.its <- readRDS("ps.its2 copy.RDS")
+otu.its <- data.frame(ps.its@otu_table)
+
+# diagdds = phyloseq_to_deseq2(ps.its, ~zone)
+# diagdds
+# 
+# diagdds = estimateSizeFactors(diagdds)
+# diagdds = estimateDispersions(diagdds)
+# diagvst = getVarianceStabilizedData(diagdds)
+# dim(diagvst)
+
+# reading gene expression table (vsd) - can be a variance-stabilized
+# OTU counts table
+its.t <- t(otu.its)
+
+#sample data - has to match the ibs names
+samdf.its <- data.frame(ps.its@sam_data)
+samdf.its$sample_full <- gsub(" ","_",samdf.its$sample_full)
+
+#row.names(samdf.its) <- samdf.its$sample_full
+its.names <- merge(samdf.its,otu.its,by=0)
+row.names(its.names) <- its.names$sample_full
+
+its.names.match <- its.names[,13:21]
+
+#subset the ones that match
+ibs.scores.sub.its <- ibs.scores[row.names(ibs.scores) %in% c(samdf.its$sample_full),]
+its.subset <- its.names.match[row.names(its.names.match) %in% c(row.names(ibs.scores.sub.its)),]
+
+# testing how much GE variation is explained by IBS eigenvectors
+row.names(its.subset) == row.names(ibs.scores.sub.its)
+its.subset.arr <- its.subset[order(as.character(row.names(its.subset))),]
+ibs.scores.arr.its <- ibs.scores.sub.its[order(as.character(row.names(ibs.scores.sub.its))),]
+row.names(its.subset.arr) == row.names(ibs.scores.arr.its)
+
+its.ibs <- rda(its.subset.arr~ibs.scores.arr.its)
+
+# plotting correlation of ibs.scores with gene expression ordination
+plot(rda(its.subset.arr~ibs.scores.arr.its))
+
+# stats
+anova(its.ibs,step=1000,perm.max=10000) #no dice
+```
+
+### Mantel
+
+```{r host x sym mantel test}
+#following instructions from here:
+#https://jkzorz.github.io/2019/07/08/mantel-test.html
+#& here:
+#https://www.rdocumentation.org/packages/ape/versions/5.4-1/topics/mantel.test
+
+its.dist <- vegdist(its.subset.arr, method="bray")
+
+ibs.subset1.its <- ibs[row.names(ibs) %in% c(samdf.its$sample_full),]
+ibs.subset.its <- ibs.subset1.its[,colnames(ibs.subset1.its) %in% c(samdf.its$sample_full)]
+row.names(its.subset.arr) == row.names(ibs.subset.its)
+
+ibs.dist <- as.matrix(ibs.subset.its)
+
+host.sym.mant <- mantel(ibs.dist,its.dist, method="spearman",permutations=999,na.rm=TRUE)
+host.sym.mant #no dice
+```
+
+## 16S x ITS2
+
+### RDA
+
+```{r bac x sym rda}
+ps.its <- readRDS("ps.its2 copy.RDS")
+load("ps.trim copy.Rdata")
+
+its.otu <- data.frame(ps.its@otu_table)
+
+bac.otu <- data.frame(ps.trim@otu_table)
+samdf.bac <- data.frame(ps.trim@sam_data)
+#sample names have to match
+row.names(bac.otu) == row.names(samdf.bac)
+row.names(bac.otu) <- samdf.bac$sample
+
+#subset the ones that match
+its.sub <- its.otu[row.names(its.otu) %in% row.names(bac.otu),]
+bac.sub <- bac.otu[row.names(bac.otu) %in% row.names(its.sub),]
+
+# testing how much GE variation is explained by IBS eigenvectors
+row.names(its.sub) == row.names(bac.sub)
+its.sub.arr <- its.sub[order(as.character(row.names(its.sub))),]
+bac.sub.arr <- bac.sub[order(as.character(row.names(bac.sub))),]
+
+row.names(its.sub.arr) == row.names(bac.sub.arr)
+
+its.dist <- vegdist(its.sub.arr)
+itsord=capscale(as.dist(its.dist)~1)
+
+# plotting (for fun)
+plot(itsord)
+
+# check which eigenvectors are interesting
+plot(itsord$CA$eig/sum(itsord$CA$eig))
+
+# choosing only the interesting eigenvectors to correlate with gene expression
+itsord.scores=scores(itsord,choices=c(1:4),"sites")
+
+its.bac.rda <- rda(bac.sub.arr~itsord.scores)
+
+# plotting correlation of ibs.scores with gene expression ordination
+plot(its.bac.rda)
+
+# stats
+anova(its.bac.rda,step=1000,perm.max=10000) #no dice
+```
+
+### Mantel
+
+```{r}
+# stats
+its.dist <- vegdist(its.sub.arr, method="bray")
+bac.dist <- vegdist(bac.sub.arr, method="bray")
+
+bac.sym.mant <- mantel(bac.dist,its.dist, method="spearman",permutations=999,na.rm=TRUE)
+bac.sym.mant
+```
+
+# Metric correlations
+
+## Setup 
+
+```{r packages for corr data}
+library(bestNormalize)
+#install.packages("PerformanceAnalytics")
+library("PerformanceAnalytics")
+library(ggplot2)
+library(cowplot)
+library(car)
+library(nlme)
+
+setwd("~/Google Drive (nicfall@bu.edu)/Moorea_revisions/host-microbes")
+```
+
+Read in data files, designate factors
+
+```{r read in master file}
+mast <- read.csv('mr_new_master_meta.csv',na.strings=c("","NA"),check.names=FALSE)
+
+mast$site <- as.factor(mast$site)
+mast$zone <- as.factor(mast$zone)
+mast$site_zone <- as.factor(mast$site_zone)
+mast$sym_clade <- as.factor(mast$sym_clade)
+mast$sym_type <- as.factor(mast$sym_type)
+mast$sym_type_top <- as.factor(mast$sym_type_top)
+
+str(mast)
+
+#by site
+mast.mnw <- subset(mast,site=="MNW")
+mast.mse <- subset(mast,site=="MSE")
+mast.tnw <- subset(mast,site=="TNW")
+```
+
+## Host metrics correlations
+
+Nada
+
+```{r just checking host stuff again}
+plot(host_het~site_zone,data=mast)
+plot(size_cm2~site_zone,data=mast)
+
+plot(host_het~size_cm2,data=mast)
+plot(log(host_het)~log(size_cm2),data=mast)
+abline(lm(log(host_het)~log(bac_rich),data=mast))
+
+shapiro.test(mast$size_cm2)
+shapiro.test(mast$host_het)
+
+best.size <- bestNormalize(mast$size_cm2)
+mast$size.t <- best.size$x.t
+plot(size.t~site_zone,data=mast)
+
+best.het <- bestNormalize(mast$host_het)
+mast$het.t <- best.het$x.t
+
+a1 <- aov(size.t~site/zone,data=mast)
+TukeyHSD(a1)#tahiti different than other two
+
+a1 <- aov(het.t~site/zone,data=mast)
+TukeyHSD(a1)
+
+#plot(het.t~size.t,data=mast)
+
+ggplot(data=mast,aes(x=log(size_cm2),y=log(host_het),color=zone))+
+  geom_point()+
+  facet_wrap(~site)+
+  stat_smooth(method="lm")
+
+shapiro.test(mast$size.t)
+shapiro.test(mast$het.t)
+
+l1 <- lm(size.t~het.t+site/zone,data=mast)
+summary(l1) 
+
+l1 <- lm(het.t~size.t+site/zone,data=mast)
+summary(l1) 
+
+l1 <- lm(host_het~size_cm2+site/zone,data=mast)
+summary(l1) 
+
+ggplot(data=mast,aes(x=log(host_het),y=log(size_cm2),color=site))+
+  geom_point()+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm")+
+  theme_cowplot()
+
+#by site
+mast.mnw <- subset(mast,site=="MNW")
+mast.mse <- subset(mast,site=="MSE")
+mast.tnw <- subset(mast,site=="TNW")
+
+l1 <- lm(host_het~size_cm2,data=mast.mnw)
+summary(l1) #ns
+
+l1 <- lm(het.t~size.t,data=mast.mse) #no zone info for size
+summary(l1) #ns
+
+l1 <- lm(het.t~size.t+zone,data=mast.tnw)
+summary(l1) #ns
+
+tnw.host <- mast.tnw[complete.cases(mast.tnw$host_het),]
+tnw.host.host <- tnw.host[complete.cases(tnw.host$size_cm2),]
+
+a1 <- aov(host_het~size_cm2+Error(zone),data=tnw.host.host)
+summary(a1) #ns
+
+mnw.host <- mast.mnw[complete.cases(mast.mnw$host_het),]
+mnw.host.host <- mnw.host[complete.cases(mnw.host$size_cm2),]
+
+a1 <- aov(het.t~size.t+Error(zone),data=mnw.host.host)
+summary(a1) #ns
+
+#install.packages("mblm")
+library(mblm)
+model.k <- mblm(host_het ~ size_cm2, data=mnw.host.host)
+summary(model.k)
+```
+
+## Host x sym
+
+Nada
+
+```{r host x sym}
+plot(host_het~sym_clade,data=mast) #ns
+#there's more variation with the C but I think that's just number of samples things
+plot(host_het~sym_type,data=mast) #ns
+plot(het.t~sym_type,data=mast) #ns
+plot(host_het~sym_type_top,data=mast) #ns
+
+plot(size_cm2~sym_clade,data=mast) #ns
+plot(size.t~sym_type,data=mast) #too much variation between sample sizes for this I think
+plot(size_cm2~sym_type_top,data=mast) #ns
+
+summary(mast$sym_type)
+
+#taking out n of 1-2
+lows <- c("A1.A1ee","A3","C3ae.C3f.C3.C3bj")
+newdata <- mast[!mast$sym_type %in% lows,]
+
+mast.less <- newdata[complete.cases(newdata$sym_type),]
+plot(size.t~sym_type,data=mast.less) 
+
+mast.less$sym_type <- gsub(".C","-C",mast.less$sym_type)
+mast.less$sym_type <- gsub(".A","-A",mast.less$sym_type)
+mast.less$sym_type <- gsub("C3ae-C3g-C3f-C3-C3bj","C3ae/C3g-C3f-C3-C3bj",mast.less$sym_type)
+mast.less$sym_type <- gsub("C3ae-C3g-C3f-C3-C3io-C3bj","C3ae/C3g/C3f/C3/C3io-C3bj",mast.less$sym_type)
+
+ggplot(mast.less,aes(x=sym_type,y=size.t,color=sym_type))+
+  geom_boxplot()+
+  theme_cowplot()+
+  theme(axis.text.x=element_text(angle=45,hjust=1),legend.position="none")+
+  xlab("Symbiont type")+
+  ylab("Colony size (transf.)")
+#ggsave("sym.size.pdf",width=5,height=5)
+
+a1 <- aov(size.t~sym_type+site/zone,data=mast.less)
+summary(a1)
+plot(a1)
+library(agricolae)
+a1 <- aov(size.t~sym_type,data=mast.less)
+
+out <- HSD.test(a1,"sym_type")
+out
+
+#hist(summary(mast.less$sym_type))
+
+          #                   A1.A1ee                         A1.A1gf.A1g 
+          #                         0                                   3 
+          #                        A3            C3ae.C3bj.C3f.C3.C3p.C3k 
+          #                         0                                  37 
+          #          C3ae.C3f.C3.C3bj     C3ae.C3f.C3.C3bj.C3in.C3p.C3il.C3im 
+          #                         0                                  12 
+          # C3ae.C3f.C3bj.C3.C3p.C3ch                C3ae.C3g.C3f.C3.C3bj 
+          #                        22                                   9 
+          # C3ae.C3g.C3f.C3.C3io.C3bj 
+          #                         6 
+```
+
+## Host x bac
+
+### Host genetic div x bacterial diversity {.tabset}
+
+```{r het data check}
+shapiro.test(mast$host_het)
+
+het.t <- bestNormalize(mast$host_het)
+#Standardized Box Cox Transformation with 114 nonmissing obs.
+mast$het.t <- het.t$x.t
+shapiro.test(mast$het.t)
+```
+
+#### Evenness
+
+```{r het x even stats}
+shapiro.test(mast$bac_even)
+a1 <- lm(het.t~bac_even+site/zone,data=mast)
+summary(a1) #p < 0.05*
+plot(a1)
+
+mast.het <- mast[complete.cases(mast$het.t),]
+mast.het.bac <- mast.het[complete.cases(mast.het$bac_even),]
+
+#subset fore reef
+mast.het.bac.fore <- subset(mast.het.bac,zone=="Fore reef")
+shapiro.test(mast.het.bac.fore$host_het)
+shapiro.test(mast.het.bac.fore$bac_even)
+a1 <- lm(host_het~bac_even+site,data=mast.het.bac.fore)
+summary(a1) #p < 0.001***, R2 = 0.42
+plot(a1)
+
+# lme1 <- lme(host_het ~ bac_even,data=mast.het.bac.fore,random=~1|site)
+# summary(lme1)
+
+#subset back reef
+mast.het.bac.back <- subset(mast.het.bac,zone=="Back reef")
+shapiro.test(log(mast.het.bac.back$host_het))
+shapiro.test(mast.het.bac.back$bac_even)
+a1 <- lm(host_het~bac_even+site,data=mast.het.bac.back)
+summary(a1) #ns
+plot(a1)
+
+#messy stats crap
+
+# 
+# library(mblm)
+
+# model.k <- mblm(het.t ~ bac_even, data=mast.het.bac)
+# summary(model.k)
+# 
+# mast.het.bac.mnwf <- subset(mast.het.bac,site=="MNW"&zone=="Fore reef")
+# model.k <- mblm(host_het ~ bac_even, data=mast.het.bac.mnwf)
+# summary(model.k)
+# a1 <- lm(het.t~bac_even,data=mast.het.bac.mnwf)
+# summary(a1) #p < 0.05*
+# plot(a1)
+# 
+# library(nlme)
+# lme1 <- lme(het.t ~ bac_even,data=mast.het.bac,random=~1|zone)
+# summary(lme1)
+
+# mnwb <- subset(mast.mnw,zone=="Back reef")
+# shapiro.test(mnwb$host_het)
+# bestNormalize(mnwb$bac_even)
+# 
+# lm1 <- lm(host_het~bac_even,data=mnwb)
+# layout(matrix(c(1,2,3,4),2,2)) # optional 4 graphs/page
+# plot(lm1)
+```
+
+```{r het x even plot}
+#all info
+# gg.het.even <- ggplot(data=mast,aes(x=het.t,y=bac_even,color=site,linetype=zone,shape=zone))+
+#   geom_point()+
+#   stat_smooth(method="lm",se=FALSE)+
+#   theme_cowplot()+
+#   #xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+#   ylab("Evenness")+
+#   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+#   scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+#   scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))+
+#   theme(axis.title.x=element_blank())
+# gg.het.even
+# 
+# #wrapped by site
+# gg.het.even.site <- ggplot(data=mast,aes(x=het.t,y=bac_even,color=zone))+
+#   geom_point()+
+#   facet_wrap(~site)+
+#   stat_smooth(method="lm")+
+#   theme_cowplot()
+# gg.het.even.site
+
+#wrapped by zone
+gg.het.even <- ggplot(data=mast,aes(x=host_het,y=bac_even))+
+  geom_point(aes(color=site,shape=site))+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm",color="thistle4")+
+  #stat_smooth(method="lm",aes(color=site,linetype=site))+
+  theme_cowplot()+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  #scale_linetype_manual(name="Site",values=c("solid","dotted","dotdash"),labels=c("MNW","MSE","TNW"))+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  scale_shape_manual(name="Site",values=c(8,4,9),labels=c("MNW","MSE","TNW"))+
+  ylab("Evennness")+
+  xlab("Host heterozygosity")+
+  xlim(0.0030,0.00433)
+gg.het.even
+
+# ggplot(data=mast,aes(x=het.t,y=bac_even))+
+#   geom_point()+
+#   stat_smooth(method="lm")+
+#   #facet_wrap()+
+#   theme_cowplot()
+```
+
+#### Shannon
+
+```{r het x shan stats}
+shapiro.test(mast$bac_shannon)
+a1 <- lm(het.t~bac_shannon+site/zone,data=mast)
+summary(a1) #p < 0.05
+
+#subset fore reef
+shapiro.test(mast.het.bac.fore$host_het)
+shapiro.test(mast.het.bac.fore$bac_shannon) #barely good
+a1 <- lm(host_het~bac_shannon+site,data=mast.het.bac.fore)
+summary(a1) #p < 0.001*** R2 = 0.39
+plot(a1)
+
+lme1 <- lme(host_het ~ bac_shannon,data=mast.het.bac.fore,random=~1|site)
+summary(lme1)
+
+#subset back reef
+shapiro.test(log(mast.het.bac.back$host_het)) #good
+shapiro.test(mast.het.bac.back$bac_shannon) #good
+a1 <- lm(log(host_het)~bac_shannon,data=mast.het.bac.back)
+summary(a1) #ns
+plot(a1)
+```
+
+```{r het x shan plot}
+#looks good:
+# gg.het.shan <- ggplot(data=mast,aes(x=het.t,y=bac_shannon,color=site,linetype=zone,shape=zone))+
+#   geom_point()+
+#   stat_smooth(method="lm",se=FALSE)+
+#   theme_cowplot()+
+#   xlab(" ")+
+#   ylab("Shannon index")+
+#   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+#   scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+#   scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))
+# gg.het.shan
+
+#wrapped by zone
+gg.het.shan <- ggplot(data=mast,aes(x=host_het,y=bac_shannon))+
+  geom_point(aes(color=site,shape=site))+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm",color="thistle4")+
+  theme_cowplot()+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_linetype_manual(name="Site",values=c("solid","dotted","dotdash"),labels=c("MNW","MSE","TNW"))+
+  scale_shape_manual(name="Site",values=c(8,4,9),labels=c("MNW","MSE","TNW"))+
+  ylab("Shannon index")+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  xlab("Host heterozygosity")+
+  xlim(0.0030,0.00433)
+gg.het.shan
+```
+
+#### Simpson
+
+```{r het x simp stats}
+shapiro.test(log(mast$bac_simpson))
+
+a1 <- lm(het.t~log(bac_simpson)+site/zone,data=mast)
+summary(a1) #p < 0.05
+
+#subset fore reef
+shapiro.test(mast.het.bac.fore$host_het)
+shapiro.test(log(mast.het.bac.fore$bac_simpson))
+simp.t <- bestNormalize(mast.het.bac.fore$bac_simpson)
+mast.het.bac.fore$simp.t <- simp.t$x.t
+#Standardized Box Cox Transformation with 36 nonmissing obs.:
+a1 <- lm(host_het~simp.t+site,data=mast.het.bac.fore)
+summary(a1) #p < 0.001
+plot(a1)
+
+lme1 <- lme(host_het ~ bac_simpson,data=mast.het.bac.fore,random=~1|site)
+summary(lme1)
+
+model.k <- mblm(het.t ~ bac_simpson, data=mast.het.bac.fore)
+summary(model.k)
+
+#subset back reef
+shapiro.test(log(mast.het.bac.back$host_het)) #good
+shapiro.test(mast.het.bac.back$bac_simpson) #good
+a1 <- lm(log(host_het)~bac_simpson+site,data=mast.het.bac.back)
+summary(a1) #ns
+plot(a1)
+```
+
+```{r het x simp plot}
+#looks good:
+# gg.het.shan <- ggplot(data=mast,aes(x=het.t,y=bac_shannon,color=site,linetype=zone,shape=zone))+
+#   geom_point()+
+#   stat_smooth(method="lm",se=FALSE)+
+#   theme_cowplot()+
+#   xlab(" ")+
+#   ylab("Shannon index")+
+#   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+#   scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+#   scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))
+# gg.het.shan
+
+#wrapped by zone
+gg.het.simp <- ggplot(data=mast,aes(x=host_het,y=bac_simpson))+
+  geom_point(aes(color=site,shape=site))+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm",color="thistle4")+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  #scale_linetype_manual(name="Site",values=c("solid","dotted","dotdash"),labels=c("MNW","MSE","TNW"))+
+  scale_shape_manual(name="Site",values=c(8,4,9),labels=c("MNW","MSE","TNW"))+
+  ylab("Simpson's index")+
+  xlab("Host heterozygosity")+
+  xlim(0.0030,0.00433)
+gg.het.simp
+```
+
+#### Richness
+
+```{r het x rich stats}
+shapiro.test(log(mast$bac_rich))
+a1 <- lm(het.t~log(bac_rich)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r het x rich plot}
+#wrapped by zone
+gg.het.rich <- ggplot(data=mast,aes(x=host_het,y=bac_rich))+
+  geom_point(aes(color=site,shape=site))+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm",color="thistle4")+
+  #stat_smooth(method="lm",aes(color=site,linetype=site))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_linetype_manual(name="Site",values=c("solid","dotted","dotdash"),labels=c("MNW","MSE","TNW"))+
+  scale_shape_manual(name="Site",values=c(8,4,9),labels=c("MNW","MSE","TNW"))+
+  ylab("Bact. richness")+
+  xlab("Host heterozygosity")
+gg.het.rich
+
+# gg.het.rich <- ggplot(data=mast,aes(x=het.t,y=log(bac_rich),color=site,linetype=zone,shape=zone))+
+#   geom_point()+
+#   stat_smooth(method="lm",se=FALSE)+
+#   theme_cowplot()+
+#   #xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+#   ylab("ASV richness")+
+#   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+#   scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+#   scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))+
+#   theme(axis.title.x=element_blank())
+# gg.het.rich
+```
+
+#### Faith's D
+
+```{r het x phylo stats}
+shapiro.test(log(mast$bac_phylo))
+a1 <- lm(het.t~log(bac_phylo)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r het x phylo plot}
+gg.het.phyl <- ggplot(data=mast,aes(x=host_het,y=bac_phylo))+
+  geom_point(aes(color=site,shape=site))+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm",color="thistle4")+
+  #stat_smooth(method="lm",aes(color=site,linetype=site))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  #scale_linetype_manual(name="Site",values=c("solid","dotted","dotdash"),labels=c("MNW","MSE","TNW"))+
+  scale_shape_manual(name="Site",values=c(8,4,9),labels=c("MNW","MSE","TNW"))+
+  ylab("Bact. Faith's D")+
+  xlab("Host heterozygosity")
+gg.het.phyl
+
+# gg.size.phyl <- ggplot(data=mast,aes(x=size.t,y=log(bac_phylo),color=site,linetype=zone,shape=zone))+
+#   geom_point()+
+#   stat_smooth(method="lm",se=FALSE)+
+#   theme_cowplot()+
+#   xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+#   ylab("Faith's D")+
+#   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+#   scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+#   scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))
+# gg.size.phyl
+```
+
+### Het x bacterial diversity: synthesizing results
+
+```{r het x bac results}
+gg.het.bac.sig <- ggarrange(gg.het.even,gg.het.shan,gg.het.simp,nrow=3,ncol=1,labels="AUTO",common.legend=TRUE,legend="right")
+gg.het.bac.sig
+
+gg.het.bac.ns <- ggarrange(gg.het.rich,gg.het.phyl,nrow=2,ncol=1,labels="AUTO",common.legend=TRUE,legend="right")
+gg.het.bac.ns
+
+#ggsave(gg.het.bac.sig,file="het.bac.sig.pdf",height=8,width=4.5)
+#ggsave(gg.het.bac.ns,file="het.bac.ns.pdf")
+```
+
+```{r host x bac}
+#subset for correlations
+host.bac <- mast[,c(7:8,12:16)]
+
+chart.Correlation(host.bac, histogram=TRUE, pch=19)
+
+# summary(lm(host_het~bac_rich,data=mast))
+# summary(lm(host_het~bac_even,data=mast))
+# summary(lm(host_het~bac_phylo,data=mast))
+# summary(lm(host_het~bac_shannon,data=mast))
+# summary(lm(host_het~bac_simpson,data=mast))
+# 
+# summary(lm(size_cm2~bac_rich,data=mast))
+# summary(lm(size_cm2~bac_even,data=mast))
+# summary(lm(size_cm2~bac_phylo,data=mast))
+# summary(lm(size_cm2~bac_shannon,data=mast))
+# summary(lm(size_cm2~bac_simpson,data=mast))
+
+#other one - looks cool
+#install.packages("ggcorrplot")
+# library(ggcorrplot)
+# library(dplyr)
+# 
+# model.matrix(~0+., data=host.bac) %>%
+#   cor(use="pairwise.complete.obs") %>%
+#   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+
+ggplot(data=mast,aes(x=log(host_het),y=log(bac_even),color=zone))+
+  geom_point()+
+  facet_wrap(~site)+
+  stat_smooth(method="lm")+
+  theme_cowplot()
+
+ggplot(data=mast,aes(x=log(host_het),y=log(bac_shannon),color=site))+
+  geom_point()+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm")+
+  theme_cowplot()
+
+ggplot(data=mast,aes(x=log(host_het),y=log(bac_simpson),color=site))+
+  geom_point()+
+  facet_wrap(~zone)+
+  stat_smooth(method="lm")+
+  theme_cowplot()
+
+shapiro.test(mast$bac_even)
+a1 <- lm(host_het~bac_even+site/zone,data=mast)
+summary(a1)
+qqPlot(a1)
+plot(a1)
+# 
+# shapiro.test(mast.mnw$bac_even)
+# 
+# l2 <- lm(host_het~bac_even+zone,data=mast.mnw)
+# summary(l2)
+# 
+# l3 <- lm(host_het~bac_even+zone,data=mast.mse)
+# summary(l3)
+# 
+# l4 <- lm(host_het~bac_even+zone,data=mast.tnw)
+# summary(l4)
+# 
+# qqPlot(m1)
+
+shapiro.test(mast$bac_shannon)
+a1 <- lm(het.t~bac_shannon+site/zone,data=mast)
+summary(a1)
+qqPlot(a1)
+plot(a1)
+
+shapiro.test(log(mast$bac_simpson))
+a1 <- lm(het.t~log(bac_simpson)+site/zone,data=mast)
+summary(a1)
+qqPlot(a1)
+plot(a1)
+
+shapiro.test(log(mast$bac_phylo))
+a1 <- lm(het.t~log(bac_phylo)+site/zone,data=mast)
+summary(a1) #ns
+
+
+shapiro.test(log(mast$bac_rich))
+a1 <- lm(het.t~log(bac_rich)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+### Colony size x bacterial diversity {.tabset}
+
+```{r size data check}
+size.t <- bestNormalize(mast$size_cm2)
+#Standardized Yeo-Johnson Transformation with 109 nonmissing obs.
+mast$size.t <- size.t$x.t
+shapiro.test(mast$size.t)
+```
+
+#### Evenness
+
+```{r size x even stats}
+shapiro.test(mast$bac_even)
+a1 <- lm(size.t~bac_even+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r size x even plot}
+#all info
+gg.size.even <- ggplot(data=mast,aes(x=size.t,y=bac_even,color=site,linetype=zone,shape=zone))+
+  geom_point()+
+  stat_smooth(method="lm",se=FALSE)+
+  theme_cowplot()+
+  #xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+  ylab("Evenness")+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+  scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))+
+  theme(axis.title.x=element_blank())
+gg.size.even
+
+# #wrapped by site
+# ggplot(data=mast,aes(x=log(size_cm2),y=log(bac_even),color=zone))+
+#   geom_point()+
+#   facet_wrap(~site)+
+#   stat_smooth(method="lm")+
+#   theme_cowplot()
+# 
+# #wrapped by zone
+# ggplot(data=mast,aes(x=log(size_cm2),y=log(bac_even),color=site))+
+#   geom_point()+
+#   stat_smooth(method="lm")+
+#   facet_wrap(~zone)+
+#   theme_cowplot()
+```
+
+#### Shannon
+
+```{r size x shan stats}
+shapiro.test(mast$bac_shannon)
+a1 <- lm(size.t~bac_shannon+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r size x shan plot}
+gg.size.shan <- ggplot(data=mast,aes(x=size.t,y=bac_shannon,color=site,linetype=zone,shape=zone))+
+  geom_point()+
+  stat_smooth(method="lm",se=FALSE)+
+  theme_cowplot()+
+  xlab(" ")+
+  ylab("Shannon index")+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+  scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))
+gg.size.shan
+```
+
+#### Simpson
+
+```{r size x simp stats}
+shapiro.test(log(mast$bac_simpson))
+a1 <- lm(size.t~log(bac_simpson)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r size x simp plot}
+gg.size.simp <- ggplot(data=mast,aes(x=size.t,y=log(bac_simpson),color=site,linetype=zone,shape=zone))+
+  geom_point()+
+  stat_smooth(method="lm",se=FALSE)+
+  theme_cowplot()+
+  xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+  ylab("Inv. Simpson index")+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+  scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))+
+  ylim(0,2.25)
+gg.size.simp
+```
+
+#### Richness
+
+```{r size x rich stats}
+shapiro.test(log(mast$bac_rich))
+a1 <- lm(size.t~log(bac_rich)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r size x rich plot}
+gg.size.rich <- ggplot(data=mast,aes(x=size.t,y=log(bac_rich),color=site,linetype=zone,shape=zone))+
+  geom_point()+
+  stat_smooth(method="lm",se=FALSE)+
+  theme_cowplot()+
+  #xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+  ylab("ASV richness")+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+  scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))+
+  theme(axis.title.x=element_blank())
+gg.size.rich
+```
+
+#### Faith's D
+
+```{r size x phylo stats}
+shapiro.test(log(mast$bac_phylo))
+a1 <- lm(size.t~log(bac_phylo)+site/zone,data=mast)
+summary(a1) #ns
+```
+
+```{r size x phylo plot}
+gg.size.phyl <- ggplot(data=mast,aes(x=size.t,y=log(bac_phylo),color=site,linetype=zone,shape=zone))+
+  geom_point()+
+  stat_smooth(method="lm",se=FALSE)+
+  theme_cowplot()+
+  xlab("Colony size (cm^2, Yeo-Johns. trans.)")+
+  ylab("Faith's D")+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Reef zone",values=c(16,15),labels=c("BR","FR"))+
+  scale_linetype_manual(name="Reef zone",values=c("solid","dashed"),labels=c("BR","FR"))
+gg.size.phyl
+```
+
+### Size x bacterial diversity: synthesizing results
+
+```{r size x bac results}
+gg.size.bac.all <- ggarrange(gg.size.rich,gg.size.even,gg.size.shan,gg.size.simp,gg.size.phyl,nrow=3,ncol=2,labels="AUTO",common.legend=TRUE,legend="right")
+gg.size.bac.all
+
+#ggsave(gg.size.bac.all,file="size.bac.pdf",width=7,height=8)
+```
+
+## Bac x sym
+
+```{r}
+##the sammple sizes across syms are crazy uneven
+
+#plot(bac_rich~sym_type,data=mast) #ns
+# summary(aov(bac_rich~sym_type_top,data=mast)) #ns
+# plot(bac_phylo~sym_type,data=mast) #ns
+# summary(aov(bac_phylo~sym_type_top,data=mast)) #ns
+
+#mast$bac<- complete.cases(mast$bac_even)
+
+#sample numbers:
+# plot(mast$sym_type_top)
+# 
+#plot(bac_even~sym_type,data=mast) 
+# a.sym.bac.even <- aov(bac_even~sym_type_top,data=mast) #sig but A3 is the most different & it has almost no samples
+# summary(a.sym.bac.even)
+# TukeyHSD(a.sym.bac.even)
+# 
+ plot(bac_shannon~sym_type,data=mast) #
+#.sym.bac.shan <- aov(bac_shannon~sym_type_top,data=mast) #sig but A3 is the most different & it has almost no samples
+# summary(a.sym.bac.shan) #sig
+# TukeyHSD(a.sym.bac.shan)
+# 
+plot(bac_simpson~sym_type,data=mast) #
+# a.sym.bac.simp <- aov(bac_simpson~sym_type_top,data=mast) #sig but A3 is the most different & it has almost no samples
+# summary(a.sym.bac.simp) #sig
+# TukeyHSD(a.sym.bac.simp)
+
+plot(bac_rich~sym_type,data=mast)
+plot(bac_even~sym_type,data=mast)
+plot(bac_phylo~sym_type,data=mast)
+```
+
+# Not using right now
+
+```{r, eval=FALSE}
+host.bac <- mast[,c(7:8,12:16)]
+
+chart.Correlation(host.bac, histogram=TRUE, pch=19)
+
+host.bac.mnw <- mast.mnw[,c(7:8,12:16)]
+chart.Correlation(host.bac.mnw, histogram=TRUE, pch=19)
+
+host.bac.mse <- mast.mse[,c(7:8,12:16)]
+chart.Correlation(host.bac.mse, histogram=TRUE, pch=19)
+
+host.bac.tnw <- mast.tnw[,c(7:8,12:16)]
+chart.Correlation(host.bac.tnw, histogram=TRUE, pch=19)
+
+summary(lm(log(host_het)~log(bac_even),data=mast.mnw)) #ns
+summary(lm(log(host_het)~log(bac_even),data=mast.mse)) #ns
+summary(lm(log(host_het)~log(bac_even),data=mast.tnw)) #ns
+
+summary(lm(host_het~bac_even,data=mast.mnw)) #ns
+summary(lm(host_het~bac_even,data=mast.mse)) #ns
+summary(lm(host_het~bac_even,data=mast.tnw)) #ns
+
+# library(nlme)
+# 
+# bac <- mast[complete.cases(mast$bac_even),]
+# host.bac <- bac[complete.cases(bac$host_het),]
+# 
+# host.bac.mnw <- subset(host.bac,site=="MNW")
+# 
+# lme.host.bac <- lme(host_het~bac_even+site+zone,data=host.bac,random=~1)
+# summary(lm(host_het~bac_even+site+zone,data=host.bac))
+# plot(lme.host.bac)
+# anova <- anova(lme.host.bac)
+# anova
+# 
+# summary(lm(host_het~bac_even,data=host.bac.mnw,random=~1|zone))
+
+```
+
+# RDA
+
+```{r rda example}
+library(vegan)
+data(mite)
+data(mite.env)
+data(mite.pcnm)
+
+# Two explanatory data frames -- Hellinger-transform Y
+mod <- varpart(mite, mite.env, mite.pcnm, transfo="hel")
+mod
+
+## Use fill colours
+showvarparts(2, bg = c("hotpink","skyblue"))
+plot(mod, bg = c("hotpink","skyblue"))
+## Test fraction [a] using partial RDA, '~ .' in formula tells to use
+## all variables of data mite.env.
+aFrac <- rda(decostand(mite, "hel"), mite.env, mite.pcnm)
+anova(aFrac)
+## RsquareAdj gives the same result as component [a] of varpart
+RsquareAdj(aFrac)
+
+## Partition Bray-Curtis dissimilarities
+varpart(vegdist(mite), mite.env, mite.pcnm)
+## Three explanatory tables with formula interface
+mod <- varpart(mite, ~ SubsDens + WatrCont, ~ Substrate + Shrub + Topo,
+   mite.pcnm, data=mite.env, transfo="hel")
+mod
+showvarparts(3, bg=2:4)
+plot(mod, bg=2:4)
+
+## Use RDA to test fraction [a]
+## Matrix can be an argument in formula
+rda.result <- rda(decostand(mite, "hell") ~ SubsDens + WatrCont +
+   Condition(Substrate + Shrub + Topo) +
+   Condition(as.matrix(mite.pcnm)), data = mite.env)
+anova(rda.result)
+
+## Four explanatory tables
+mod <- varpart(mite, ~ SubsDens + WatrCont, ~Substrate + Shrub + Topo,
+  mite.pcnm[,1:11], mite.pcnm[,12:22], data=mite.env, transfo="hel")
+mod
+plot(mod, bg=2:5)
+## Show values for all partitions by putting 'cutoff' low enough:
+plot(mod, cutoff = -Inf, cex = 0.7, bg=2:5)
+
+
+```
+
+```{r my rda, eval=FALSE}
+sym.data <- read.csv("~/nicfall drive/Moorea_revisions/mrits_revised/symportal_profile_counts.csv",header=T)
+
+sym.meta <- read.csv("~/nicfall drive/Moorea_revisions/mrits_revised/mrits_sampledata copy.csv",header=T)
+
+sym.sub <- mast[complete.cases(mast$sym_clade),]
+sym.meta$sample_num <- sym.meta$Sample
+
+sym.merge <- merge(sym.meta,sym.sub,by="sample_num")
+
+sym.merge.het <- sym.merge[complete.cases(sym.merge$host_het),]
+
+sym.site <- sym.merge.het[,c(7:8)]
+sym.host <- sym.merge.het[,c(18)]
+
+sym.data.less <- sym.data[sym.data$Sample %in% c(sym.merge.het$sample_num),]
+row.names(sym.data.less) <- sym.data.less$Sample
+sym.data2 <- sym.data.less[,2:10]
+
+mod <- varpart(sym.data2, sym.site, sym.host, transfo="hel")
+mod
+
+## Use fill colours
+showvarparts(2, bg = c("hotpink","skyblue"))
+plot(mod, bg = c("hotpink","skyblue"))
+## Test fraction [a] using partial RDA, '~ .' in formula tells to use
+## all variables of data mite.env.
+aFrac <- rda(decostand(sym.data2, "hel"), sym.site, sym.host)
+anova(aFrac)
+## RsquareAdj gives the same result as component [a] of varpart
+RsquareAdj(aFrac)
+
+sym.hell <- decostand(sym.data2, 'hell')  # we are planning to do tb-RDA, this is Hellinger pre-transformation
+
+rda(formula = sym.hell ~ site.x*zone.x, data = sym.site)
+```
+

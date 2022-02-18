@@ -1,0 +1,97 @@
+Sample,Site,[DNA] (ng/ul),island,direction,zone,site,site_zone,DNAcon,zoox
+101,Moorea NW Inner,304,Moorea,NW,Backreef,MNW,MNW-B,304.2,y
+113,Moorea NW Outer,379,Moorea,NW,Forereef,MNW,MNW-F,379,y
+115,Moorea NW Outer,407,Moorea,NW,Forereef,MNW,MNW-F,407,y
+116,Moorea NW Outer,670,Moorea,NW,Forereef,MNW,MNW-F,670,y
+117,Moorea NW Outer,755,Moorea,NW,Forereef,MNW,MNW-F,755,y
+130,Moorea NW Outer,200,Moorea,NW,Forereef,MNW,MNW-F,200,y
+157,Moorea NW Outer,725,Moorea,NW,Forereef,MNW,MNW-F,725,y
+158,Moorea NW Outer,444,Moorea,NW,Forereef,MNW,MNW-F,444,y
+159,Moorea NW Outer,180,Moorea,NW,Forereef,MNW,MNW-F,180,y
+172,Moorea NW Outer,474,Moorea,NW,Forereef,MNW,MNW-F,474,y
+173,Moorea NW Outer,230,Moorea,NW,Forereef,MNW,MNW-F,230,y
+174,Moorea NW Outer,538,Moorea,NW,Forereef,MNW,MNW-F,538,y
+175,Moorea NW Outer,207,Moorea,NW,Forereef,MNW,MNW-F,207,y
+177,Moorea NW Outer,190,Moorea,NW,Forereef,MNW,MNW-F,190,y
+178,Moorea NW Outer,319,Moorea,NW,Forereef,MNW,MNW-F,319,y
+179,Moorea NW Outer,247,Moorea,NW,Forereef,MNW,MNW-F,247,y
+180,Moorea NW Outer,285,Moorea,NW,Forereef,MNW,MNW-F,285,y
+276,Moorea SE Inner,222,Moorea,SE,Backreef,MSE,MSE-B,221.6,y
+297,Moorea SE Inner,91,Moorea,SE,Backreef,MSE,MSE-B,91.1,y
+300,Moorea SE Inner,114,Moorea,SE,Backreef,MSE,MSE-B,113.6,y
+301,Moorea SE Inner,87,Moorea,SE,Backreef,MSE,MSE-B,87.1,y
+303,Moorea SE Inner,122,Moorea,SE,Backreef,MSE,MSE-B,122.4,y
+304,Moorea SE Inner,88,Moorea,SE,Backreef,MSE,MSE-B,88.3,y
+305,Moorea SE Inner,133,Moorea,SE,Backreef,MSE,MSE-B,132.5,y
+307,Moorea SE Inner,137,Moorea,SE,Backreef,MSE,MSE-B,137.2,y
+308,Moorea SE Inner,332,Moorea,SE,Backreef,MSE,MSE-B,332.3,y
+310,Moorea SE Inner,313,Moorea,SE,Backreef,MSE,MSE-B,313.2,y
+311,Moorea SE Inner,176,Moorea,SE,Backreef,MSE,MSE-B,176.2,y
+315,Moorea SE Inner,199,Moorea,SE,Backreef,MSE,MSE-B,223.6,y
+316,Moorea SE Inner,235,Moorea,SE,Backreef,MSE,MSE-B,235.4,y
+351,Moorea SE Inner,136,Moorea,SE,Backreef,MSE,MSE-B,135.9,y
+377,Moorea SE Inner,360,Moorea,SE,Backreef,MSE,MSE-B,356.9,y
+378,Moorea SE Inner,372,Moorea,SE,Backreef,MSE,MSE-B,371.9,y
+380,Tahiti Inner,500,Tahiti,Airport,Backreef,TNW,TNW-B,499.9,y
+384,Tahiti Outer,109,Tahiti,Airport,Forereef,TNW,TNW-F,108.5,y
+386,Tahiti Outer,125,Tahiti,Airport,Forereef,TNW,TNW-F,125.2,y
+389,Tahiti Outer,254,Tahiti,Airport,Forereef,TNW,TNW-F,254.3,y
+394,Tahiti Outer,97,Tahiti,Airport,Forereef,TNW,TNW-F,97.3,y
+397,Tahiti Outer,388,Tahiti,Airport,Forereef,TNW,TNW-F,387.7,y
+400,Tahiti Outer,91,Tahiti,Airport,Forereef,TNW,TNW-F,90.7,y
+402,Tahiti Outer,166,Tahiti,Airport,Forereef,TNW,TNW-F,165.7,y
+405,Tahiti Outer,86,Tahiti,Airport,Forereef,TNW,TNW-F,85.8,y
+408,Tahiti Outer,179,Tahiti,Airport,Forereef,TNW,TNW-F,178.5,y
+409,Tahiti Outer,210,Tahiti,Airport,Forereef,TNW,TNW-F,210,y
+414,Tahiti Outer,268,Tahiti,Airport,Forereef,TNW,TNW-F,267.6,y
+416,Tahiti Outer,202,Tahiti,Airport,Forereef,TNW,TNW-F,201.7,y
+418,Tahiti Outer,340,Tahiti,Airport,Forereef,TNW,TNW-F,340.1,y
+421,Tahiti Outer,102,Tahiti,Airport,Forereef,TNW,TNW-F,102,y
+425,Tahiti Outer,149,Tahiti,Airport,Forereef,TNW,TNW-F,148.8,y
+427,Tahiti Outer,109,Tahiti,Airport,Forereef,TNW,TNW-F,108.5,y
+453,Tahiti Inner,151,Tahiti,Airport,Backreef,TNW,TNW-B,150.9,y
+455,Tahiti Inner,205,Tahiti,Airport,Backreef,TNW,TNW-B,204.9,y
+505,Tahiti Inner,170,Tahiti,Airport,Backreef,TNW,TNW-B,170.4,y
+51,Moorea NW Inner,444,Moorea,NW,Backreef,MNW,MNW-B,444.4,y
+511,Tahiti Inner,337,Tahiti,Airport,Backreef,TNW,TNW-B,336.5,y
+513,Tahiti Inner,121,Tahiti,Airport,Backreef,TNW,TNW-B,121.1,y
+516,Tahiti Inner,370,Tahiti,Airport,Backreef,TNW,TNW-B,370.9,y
+517,Tahiti Inner,298,Tahiti,Airport,Backreef,TNW,TNW-B,297.8,y
+525,Tahiti Inner,143,Tahiti,Airport,Backreef,TNW,TNW-B,142.8,y
+526,Tahiti Inner,111,Tahiti,Airport,Backreef,TNW,TNW-B,111.8,y
+527,Tahiti Inner,125,Tahiti,Airport,Backreef,TNW,TNW-B,124.9,y
+530,Tahiti Inner,130,Tahiti,Airport,Backreef,TNW,TNW-B,129.8,y
+533,Tahiti Inner,214,Tahiti,Airport,Backreef,TNW,TNW-B,214,y
+539,Tahiti Inner,307,Tahiti,Airport,Backreef,TNW,TNW-B,306.6,y
+540,Tahiti Inner,219,Tahiti,Airport,Backreef,TNW,TNW-B,219.1,y
+545,Tahiti Inner,121,Tahiti,Airport,Backreef,TNW,TNW-B,120.8,y
+55,Moorea NW Inner,400,Moorea,NW,Backreef,MNW,MNW-B,400.4,y
+58,Moorea NW Inner,504,Moorea,NW,Backreef,MNW,MNW-B,504,y
+600,Moorea SE Outer,477,Moorea,SE,Forereef,MSE,MSE-F,477.2,y
+604,Moorea SE Outer,196,Moorea,SE,Forereef,MSE,MSE-F,196,y
+607,Moorea SE Outer,344,Moorea,SE,Forereef,MSE,MSE-F,344.8,y
+608,Moorea SE Outer,513,Moorea,SE,Forereef,MSE,MSE-F,512.8,y
+609,Moorea SE Outer,199,Moorea,SE,Forereef,MSE,MSE-F,198.9,y
+612,Moorea SE Outer,345,Moorea,SE,Forereef,MSE,MSE-F,344.5,y
+614,Moorea SE Outer,198,Moorea,SE,Forereef,MSE,MSE-F,197.6,y
+616,Moorea SE Outer,348,Moorea,SE,Forereef,MSE,MSE-F,347.7,y
+617,Moorea SE Outer,299,Moorea,SE,Forereef,MSE,MSE-F,298.6,y
+618,Moorea SE Outer,214,Moorea,SE,Forereef,MSE,MSE-F,214,y
+619,Moorea SE Outer,281,Moorea,SE,Forereef,MSE,MSE-F,281.2,y
+62,Moorea NW Inner,205,Moorea,NW,Backreef,MNW,MNW-B,205.2,y
+626,Moorea SE Outer,120,Moorea,SE,Forereef,MSE,MSE-F,110.4,y
+627,Moorea SE Outer,325,Moorea,SE,Forereef,MSE,MSE-F,324.5,y
+63,Moorea NW Inner,784,Moorea,NW,Backreef,MNW,MNW-B,748.3,y
+630,Moorea SE Outer,239,Moorea,SE,Forereef,MSE,MSE-F,238.6,y
+632,Moorea SE Outer,152,Moorea,SE,Forereef,MSE,MSE-F,151.7,y
+633,Moorea SE Outer,211,Moorea,SE,Forereef,MSE,MSE-F,210.5,y
+65,Moorea NW Inner,79,Moorea,NW,Backreef,MNW,MNW-B,78.7,y
+70,Moorea NW Inner,729,Moorea,NW,Backreef,MNW,MNW-B,729.7,y
+72,Moorea NW Inner,744,Moorea,NW,Backreef,MNW,MNW-B,744.3,y
+73,Moorea NW Inner,742,Moorea,NW,Backreef,MNW,MNW-B,742.4,y
+76,Moorea NW Inner,159,Moorea,NW,Backreef,MNW,MNW-B,158.7,y
+87,Moorea NW Inner,246,Moorea,NW,Backreef,MNW,MNW-B,246,y
+89,Moorea NW Inner,231,Moorea,NW,Backreef,MNW,MNW-B,231.2,y
+96,Moorea NW Inner,168,Moorea,NW,Backreef,MNW,MNW-B,176.7,y
+97,Moorea NW Inner,104,Moorea,NW,Backreef,MNW,MNW-B,104.1,y
+98,Moorea NW Inner,476,Moorea,NW,Backreef,MNW,MNW-B,476.1,y

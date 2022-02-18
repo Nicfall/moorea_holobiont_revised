@@ -1,0 +1,994 @@
+---
+title: "Mo'orea & Tahiti ITS2 analysis"
+author: "Nicola G. Kriefall"
+date: "8/17/2021"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+---
+
+# SymPortal pre-submission
+
+Submitting ITS2 samples to [Symportal](symportal.org)
+
+Prior to submission
+
+- removing reads containing Illumina sequencing adapters
+- retaining only paired reads that match ITS2 primer
+
+```{bash setup, eval=FALSE}
+# *note: most of this was written by Dr. Carly D. Kenkel
+
+# in Terminal home directory:
+# following instructions of installing BBtools from https://jgi.doe.gov/data-and-tools/bbtools/bb-tools-user-guide/installation-guide/
+# 1. download BBMap package, sftp to installation directory
+# 2. untar: 
+tar -xvzf BBMap_(version).tar.gz
+# 3. test package:
+cd bbmap
+~/bin/bbmap/stats.sh in=~/bin/bbmap/resources/phix174_ill.ref.fa.gz
+
+# my adaptors, which I saved as "adaptors.fasta"
+# >forward
+# AATGATACGGCGACCAC
+# >forwardrc
+# GTGGTCGCCGTATCATT
+# >reverse
+# CAAGCAGAAGACGGCATAC
+# >reverserc
+# GTATGCCGTCTTCTGCTTG
+
+# primers for ITS2:
+# >forward
+# GTGAATTGCAGAACTCCGTG
+# >reverse
+# CCTCCGCTTACTTATATGCTT
+
+# making a sample list based on the first phrase before the underscore in the .fastq name
+ls *R1_001.fastq | cut -d '_' -f 1 > samples.list
+
+# cuts off the extra words in the .fastq files
+for file in $(cat samples.list); do  mv ${file}_*R1*.fastq ${file}_R1.fastq; mv ${file}_*R2*.fastq ${file}_R2.fastq; done 
+
+# gets rid of reads that still have the adaptor sequence
+for file in $(cat samples.list); do ~/bin/bbmap/bbduk.sh in1=${file}_R1.fastq in2=${file}_R2.fastq ref=adaptors.fasta out1=${file}_R1_NoIll.fastq out2=${file}_R2_NoIll.fastq; done &>bbduk_NoIll.log
+
+# only keeping reads that start with the primer
+for file in $(cat samples.list); do ~/bin/bbmap/bbduk.sh in1=${file}_R1_NoIll.fastq in2=${file}_R2_NoIll.fastq k=15 restrictleft=21 literal=GTGAATTGCAGAACTCCGTG,CCTCCGCTTACTTATATGCTT outm1=${file}_R1_NoIll_ITS.fastq outu1=${file}_R1_check.fastq outm2=${file}_R2_NoIll_ITS.fastq outu2=${file}_R2_check.fastq; done &>bbduk_ITS.log
+# higher k = more reads removed, but can't surpass k=20 or 21
+
+# renamed them to the shorter version again
+for file in $(cat samples.list); do  mv ${file}_*R1*.fastq ${file}_R1.fastq; mv ${file}_*R2*.fastq ${file}_R2.fastq; done 
+```
+
+Then transferred all "R1.fastq" & "R2.fastq" files to the folder to be submitted to SymPortal
+
+# SymPortal ITS2 analysis
+
+Information on Symportal output documents [here](https://github.com/didillysquat/SymPortal_framework/wiki/SymPortal-output-documents)
+
+Formatting notes:
+
+- Cleaned up file called 165_20210816_DBV_20210816T102518.profiles.absolute.abund_and_meta.txt to format for phyloseq
+
+## Setup
+
+```{r packages, echo=FALSE}
+library(phyloseq)
+library('ggplot2')
+library('Rmisc')
+library(cowplot)
+library("ggpubr")
+library("vegan")
+```
+
+```{r working directory, include=FALSE}
+#setwd("~/Google Drive (nicfall@bu.edu)/Moorea_revisions/mrits_revised")
+#setwd("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/mrits_revised")
+setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/Moorea_revisions/moorea_holobiont_revised/mrits_revised")
+#setwd("~/nicfall drive/Moorea_revisions/mrits_revised")
+```
+
+## Checking for low read samples
+
+```{r counts per sample}
+counts <- read.csv('symportal_profile_counts.csv',header=TRUE,row.names=1,check.names=FALSE)
+
+plot(rowSums(counts)) 
+#3 that are 0, removing them now: (513, 87, 76)
+counts.no0 <- counts[1:93,]
+```
+
+## Phyloseq object - type profiles
+
+Ran once then saved to re-read in later
+
+```{r phyloseq object}
+# import dataframe holding sample information
+samdf<-read.csv("mrits_sampledata copy.csv")
+head(samdf)
+rownames(samdf) <- samdf$Sample
+samdf$sample_full <- paste(samdf$site_zone,samdf$Sample)
+
+# import taxa info
+taxa <- read.csv("symportal_taxa.csv",header=TRUE)
+rownames(taxa) <- as.factor(taxa$ITS2_type_profile)
+mtaxa <- as.matrix(taxa)
+
+# import counts (absolute abundance from its2 type profiles)
+mcounts <- as.matrix(counts.no0)
+
+# Construct phyloseq object 
+ps <- phyloseq(otu_table(mcounts, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(mtaxa))
+
+ps
+
+#saveRDS(ps,file="ps.its2.RDS")
+```
+
+## Phyloseq object - all types
+
+Ran once then saved to re-read in later
+
+```{r phyloseq object type profiles}
+counts.all <- read.csv("symportal_allcounts.csv",header=T,row.names=1)
+
+plot(rowSums(counts.all)) 
+#3 that are 0, removing them now: (513, 87, 76)
+counts.all.no0 <- counts.all[1:93,]
+
+# # import taxa info - haven't done this with the full suite of types yet
+# taxa <- read.csv("symportal_taxa.csv",header=TRUE)
+# rownames(taxa) <- as.factor(taxa$ITS2_type_profile)
+# mtaxa <- as.matrix(taxa)
+
+# import counts (absolute abundance from its2 type profiles)
+mcounts.all <- as.matrix(counts.all.no0)
+
+# Construct phyloseq object 
+ps.all <- phyloseq(otu_table(mcounts.all, taxa_are_rows=FALSE),
+               sample_data(samdf))
+
+ps.all
+
+#saveRDS(ps.all,"ps.all.its2.RDS")
+```
+
+## Re-read in data - all types
+
+```{r re-read data}
+#ps <- readRDS("ps.its2.RDS")
+#ps.all <- readRDS("ps.all.its2.RDS")
+```
+
+## Bar plots {.tabset}
+
+### Relative abundance by sample
+
+```{r abs abundance}
+# first look at data
+plot_bar(ps, "Sample", fill="ITS2_type_profile")
+```
+
+### Absolute abundance by site & zone
+
+```{r}
+plot_bar(ps,"ITS2_type_profile", fill="ITS2_type_profile",facet_grid=~site_zone)
+```
+
+## Relative abundance bar plots {.tabset}
+
+### Type profile by sample
+
+```{r rel abun plot - by samples}
+#all samples
+#plot_bar(ps,"sample_full")
+ps.rel <- transform_sample_counts(ps, function(x) x / sum(x))
+plot_bar(ps.rel,"ITS2_type_profile", fill="ITS2_type_profile",facet_grid=~site_zone)
+
+gg.bar <- plot_bar(ps.rel,"sample_full",fill="ITS2_type_profile")+
+  geom_bar(stat="identity")+#put color back here in aes
+  #scale_color_manual(values=c("#8E0152","#DE77AE","#FDE0EF","darkgreen","greenyellow","#25AB82","darkolivegreen3","green3","#E6F5D0"))+
+  scale_fill_manual(name="ITS2 type profiles", values=c("#8E0152","#DE77AE","#FDE0EF","darkgreen","greenyellow","#25AB82","darkolivegreen3","green3","#E6F5D0"))+
+  theme_cowplot()+
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_x_discrete(breaks=c("MNW-B 70","MNW-F 172","MSE-B 307","MSE-F 614","TNW-B 526","TNW-F 405"),labels=c("MNW-B","MNW-F","MSE-B","MSE-F","TNW-B","TNW-F"))+
+  xlab("Site-reef zone")+
+  geom_vline(xintercept=14.5)+
+  geom_vline(xintercept=30.5)+
+  geom_vline(xintercept=46.5)+
+  geom_vline(xintercept=62.5)+
+  geom_vline(xintercept=77.5)+
+  geom_vline(xintercept=93.5)
+gg.bar
+
+#counted 14 samples for MNW-B
+#16 for MNW-F
+#16 MSE-B
+#16 MSE-F
+#15 TNW-B
+#16 TNW-F
+
+#ggsave(gg.bar,file="sym.barplot.pdf",h=4,w=11)                        
+
+#want to re-order by similar samples
+```
+
+### Type profile by site & zone
+
+```{r rel abun plot - by site & zone}
+ps.sz <- merge_samples(ps, "site_zone")
+ps.rel.sz <- transform_sample_counts(ps.sz, function(x) x / sum(x))
+plot_bar(ps.rel.sz, fill="ITS2_type_profile")
+
+ps.mnw <- subset_samples(ps, site=="MNW")
+ps.mnw.z <- merge_samples(ps.mnw, "zone")
+ps.mnw.z.rel <- transform_sample_counts(ps.mnw.z, function(x) x / sum(x))
+ps.mse <- subset_samples(ps, site=="MSE")
+ps.mse.z <- merge_samples(ps.mse, "zone")
+ps.mse.z.rel <- transform_sample_counts(ps.mse.z, function(x) x / sum(x))
+ps.tnw <- subset_samples(ps, site=="TNW")
+ps.tnw.z <- merge_samples(ps.tnw, "zone")
+ps.tnw.z.rel <- transform_sample_counts(ps.tnw.z, function(x) x / sum(x))
+
+ps.mnw.z <- merge_samples(ps.mnw, "zone")
+ps.mnw.z.rel <- transform_sample_counts(ps.mnw.z, function(x) x / sum(x))
+bar.mnw <- plot_bar(ps.mnw.z.rel, fill="ITS2_type_profile")+
+  theme_cowplot()+
+  scale_fill_manual(name="ITS2 type profile",values=c("#8E0152","#DE77AE","#FDE0EF","darkgreen","greenyellow","#25AB82","darkolivegreen3","green3","#E6F5D0"))+
+  ylab("Relative abundance")+
+  xlab("Reef zone")+
+  scale_x_discrete(labels=c("BR","FR"))+
+  ggtitle("Mo'orea NW")
+bar.mnw
+
+bar.mse <- plot_bar(ps.mse.z.rel, fill="ITS2_type_profile")+
+  theme_cowplot()+
+  scale_fill_manual(name="ITS2 type profile",values=c("#8E0152","#DE77AE","#FDE0EF","darkgreen","greenyellow","#25AB82","darkolivegreen3","green3","#E6F5D0"))+
+  ylab("Relative abundance")+
+  scale_x_discrete(labels=c("BR","FR"))+
+  xlab("Reef zone")+
+  ggtitle("Mo'orea SE")
+bar.mse
+
+bar.tnw <- plot_bar(ps.tnw.z.rel, fill="ITS2_type_profile")+
+  theme_cowplot()+
+  scale_fill_manual(name="ITS2 type profile",values=c("#8E0152","#DE77AE","#FDE0EF","darkgreen","greenyellow","#25AB82","darkolivegreen3","green3","#E6F5D0"))+
+  xlab("Reef zone")+
+  ylab("Relative abundance")+
+  scale_x_discrete(labels=c("BR","FR"))+
+  ggtitle("Tahiti NW")
+bar.tnw
+```
+
+### Genus by sample
+
+Not super interesting
+
+```{r rel abun - sample x genus}
+ps.clade <- tax_glom(ps, "Clade")
+ps.clade.rel <- transform_sample_counts(ps.clade, function(x) x / sum(x))
+plot_bar(ps.clade.rel, "sample_full", fill="Clade")+
+    geom_bar(aes(color=Clade, fill=Clade), stat="identity", position="stack")
+```
+
+## PCAs{.tabset}
+
+### Type profiles
+
+```{r type profiles by site}
+ps.ord <- ordinate(ps,"PCoA",distance="bray")
+plot_ordination(ps, ps.ord, color ="site", shape="zone")+
+  geom_point(alpha=0.5)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(values=c(16,15))+
+  stat_ellipse(aes(linetype=zone))+
+  theme_cowplot()
+
+#ggsave(filename="pcoa.types.site.pdf")
+```
+
+```{r pcoa type profiles}
+#just cladocopium
+# ps.c <- subset_taxa(ps,Clade=="C")
+# ps.c.no0 <- subset_samples(ps.c,sample_sums(ps.c)!=0)
+# 
+# ps.ord.c <- ordinate(ps.c.no0,"PCoA",distance="bray")
+# plot_ordination(ps.c.no0, ps.ord.c, color ="site")+
+#   geom_point(alpha=0.5)
+# #doesn't really change between C or C+A
+
+ps.mnw <- subset_samples(ps,site=="MNW")
+gg.pc.mnw.types <- plot_ordination(ps.mnw, ordinate(ps.mnw,"PCoA",distance="bray"), color ="zone",shape="zone")+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("BR","FR"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  xlab("Axis 1 (61.4%)")+
+  ylab("Axis 2 (12.2%)")+
+  #theme(legend.position="none")+
+  ggtitle("Mo'orea NW")
+gg.pc.mnw.types
+
+ps.mse <- subset_samples(ps,site=="MSE")
+gg.pc.mse.types <- plot_ordination(ps.mse, ordinate(ps.mse,"PCoA",distance="bray"), color ="zone",shape="zone")+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("BR","FR"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  ggtitle("Mo'orea SE")+
+  xlab("Axis 1 (52.4%)")+
+  ylab("Axis 2 (23.5%)")
+gg.pc.mse.types
+
+ps.tnw <- subset_samples(ps,site=="TNW")
+gg.pc.tnw.types <- plot_ordination(ps.tnw, ordinate(ps.tnw,"PCoA",distance="bray"), color ="zone",shape="zone")+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("BR","FR"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("BR","FR"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  ggtitle("Tahiti NW")+
+  xlab("Axis 1 (41.1%)")+
+  ylab("Axis 2 (21.5%)")
+gg.pc.tnw.types
+```
+
+### All types
+
+Reading in coordinate files given by SymPortal:
+(done on full suite of sequences, not the type profiles)
+
+```{r pcoa only C genus}
+pcoa.c <- read.csv("symportal_bray_pcoa_cladec.csv")
+#pcoa.c <- read.csv("symportal_bray_pcoa_cladec_sqrt.csv")
+pcoa.c$Sample <- pcoa.c$sample
+pcoa.samdata.c <- merge(pcoa.c,samdf,by="Sample")
+```
+
+### Plot - site & zone
+
+```{r C pcoa plot sz}
+#quick raw plot
+ggplot(pcoa.samdata.c,aes(x=PC1,y=PC2,color=site))+
+  geom_point()
+
+ggplot(pcoa.samdata.c,aes(x=PC1,y=PC2,color=site_zone,shape=site,linetype=zone))+
+  geom_point()+
+  stat_ellipse()+
+  #scale_shape_manual(values=c(16,15),labels=c("Back reef","Fore reef"))+
+  #scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))
+```
+
+### Plot - zone summed
+
+```{r C pcoa plot z}
+ggplot(pcoa.samdata.c,aes(x=PC1,y=PC2,color=zone,shape=zone))+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("Back reef","Fore reef"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))
+```
+
+## PCAs by site{.tabset}
+
+### MNW
+
+```{r pcoa mnw}
+pcoa.mnw <- subset(pcoa.samdata.c,site=="MNW")
+
+gg.pc.mnw <- ggplot(pcoa.mnw,aes(x=PC1,y=PC2,color=zone,shape=zone))+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("Back reef","Fore reef"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  theme(legend.position="none")+
+  ggtitle("Mo'orea NW")+
+  xlab(" ")
+gg.pc.mnw
+```
+
+### MSE
+
+```{r pcoa mse}
+pcoa.mse <- subset(pcoa.samdata.c,site=="MSE")
+
+gg.pc.mse <- ggplot(pcoa.mse,aes(x=PC1,y=PC2,color=zone,shape=zone))+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("Back reef","Fore reef"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  ggtitle("Mo'orea SE")+
+  theme(legend.position="none")+
+  ylab(" ")
+gg.pc.mse
+```
+
+### TNW
+
+```{r pcoa tnw}
+pcoa.tnw <- subset(pcoa.samdata.c,site=="TNW")
+
+gg.pc.tnw <- ggplot(pcoa.tnw,aes(x=PC1,y=PC2,color=zone,shape=zone))+
+  geom_point()+
+  stat_ellipse()+
+  scale_shape_manual(values=c(16,15),labels=c("Back reef","Fore reef"))+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme_cowplot()+
+  ggtitle("Tahiti NW")+
+  ylab(" ")+
+  xlab(" ")
+gg.pc.tnw
+```
+
+## Synthesizing results
+
+```{r multi pca}
+library(ggpubr)
+```
+
+```{r}
+gg.pca <- ggarrange(gg.pc.mnw.types,gg.pc.mse.types,gg.pc.tnw.types,labels=c("(a)","(b)","(c)"),nrow=1,common.legend=T,legend="right")
+gg.pca
+gg.bar <- ggarrange(bar.mnw,bar.mse,bar.tnw,labels=c("(d)","(e)","(f)"),nrow=1,common.legend=TRUE,legend="right")
+gg.bar
+
+ggarrange(gg.pca,gg.bar,nrow=2)
+#ggsave(file="pca.bar.pdf",height=5.5,width=9.5)
+```
+
+## Normalized results
+
+Thank you to Ryan Eckhart for parts of this: [Github here](https://github.com/RyanEckert/Belize_Mcav_Symbiodiniaceae_ITS2)
+
+```{r normalized type profiles}
+#BiocManager::install("edgeR", update = FALSE)
+library(edgeR)
+
+seqs.types <- as.data.frame(ps@otu_table)
+seqs.types.t <- t(seqs.types)
+
+its2SeqList = DGEList(counts = seqs.types.t)
+head(its2SeqList$samples)
+
+its2SeqNorm =  calcNormFactors(its2SeqList, method = "TMM")
+head(its2SeqNorm$samples)
+its2TMM = t(cpm(its2SeqNorm, normalized.lib.sizes = TRUE))
+
+#phyloseq
+row.names(samdf) <- samdf$Sample
+ps.norm <- phyloseq(otu_table(its2TMM, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(mtaxa))
+
+ps.norm
+```
+
+
+```{r}
+ps.norm.ord <- ordinate(ps.norm,"PCoA",distance="bray")
+plot_ordination(ps.norm, ps.norm.ord, color ="site")+
+  geom_point(alpha=0.5)
+
+ps.norm.mnw <- subset_samples(ps.norm,site=="MNW")
+
+plot_ordination(ps.norm.mnw, ordinate(ps.norm.mnw,"PCoA","bray"), color ="zone")+
+  geom_point(alpha=0.5)+
+  stat_ellipse()
+
+ps.norm.mse <- subset_samples(ps.norm,site=="MSE")
+
+plot_ordination(ps.norm.mse, ordinate(ps.norm.mse,"PCoA","bray"), color ="zone")+
+  geom_point(alpha=0.5)+
+  stat_ellipse()
+
+ps.norm.tnw <- subset_samples(ps.norm,site=="TNW")
+
+plot_ordination(ps.norm.tnw, ordinate(ps.norm.tnw,"PCoA","bray"), color ="zone")+
+  geom_point(alpha=0.5)+
+  stat_ellipse()
+```
+
+```{norm for all seqs}
+#BiocManager::install("edgeR", update = FALSE)
+library(edgeR)
+
+seqs.all <- as.data.frame(ps.all@otu_table)
+seqs.all.t <- t(seqs.all)
+
+its2SeqList.all = DGEList(counts = seqs.all.t)
+head(its2SeqList.all$samples)
+
+its2SeqNorm.all =  calcNormFactors(its2SeqList.all, method = "TMM")
+head(its2SeqNorm.all$samples)
+its2TMM.all = t(cpm(its2SeqNorm.all, normalized.lib.sizes = TRUE))
+
+#phyloseq
+ps.norm.all <- phyloseq(otu_table(its2TMM.all, taxa_are_rows=FALSE),
+               sample_data(samdf))
+
+ps.norm.all
+
+ps.norm.all.ord <- ordinate(ps.norm.all,"PCoA",distance="bray")
+plot_ordination(ps.norm.all, ps.norm.all.ord, color ="site")+
+  geom_point(alpha=0.5)+
+  stat_ellipse()
+```
+
+# Stats
+
+## New phyloseq object
+
+Fuller data counts from Symportal before type profiles identified
+
+First we purge sequences and transpose the data to work with *edgeR*
+```{r, purging outlying sequences and normalizing reads, eval=FALSE}
+goods = purgeOutliers(its2Seq, count.columns = 4:length(its2Seq), otu.cut = 0.0001, sampleZcut = -5)
+```
+
+```{r, seq norm, results = 'hide', eval=FALSE}
+its2SeqTransposed = t(goods[, 4:length(goods[1, ])])
+its2SeqList = DGEList(counts = its2SeqTransposed)
+head(its2SeqList$samples)
+```
+
+Normalize
+
+```{r}
+```
+
+## Stats - type profiles
+
+```{r adonis stats packages}
+library(vegan)
+#remotes::install_github("Jtrachsel/funfuns")
+library(funfuns)
+library(dplyr)
+library(edgeR)
+```
+
+Raw
+
+```{r by site}
+seq.ps <- data.frame(ps@otu_table)
+samdf.ps <- data.frame(ps@sam_data)
+
+dist.ps <- vegdist(seq.ps)
+bet.ps <- betadisper(dist.ps,samdf.ps$site)
+#anova(bet.ps) #ns
+permutest(bet.ps,pairwise=TRUE,permutations=999)
+plot(bet.ps)
+
+adonis(seq.ps ~ site/zone, data=samdf.ps, permutations=999) #p<001***
+
+pairwise.adonis(seq.ps, factors=samdf.ps$site, permutations=999) #tahiti different from other two
+#        pairs    F.Model         R2 p.value p.adjusted
+# 1 MSE vs MNW  0.8174161 0.01344049   0.445      0.445
+# 2 MSE vs TNW 13.6939515 0.18333414   0.001      0.001
+# 3 MNW vs TNW 12.1951261 0.17129159   0.001      0.001
+```
+
+Normalized
+
+```{r stats by site norm}
+seq.ps.norm <- data.frame(ps.norm@otu_table)
+samdf.ps.norm <- data.frame(ps.norm@sam_data)
+
+dist.ps.norm <- vegdist(seq.ps.norm)
+bet.ps.norm <- betadisper(dist.ps.norm,samdf.ps.norm$site)
+anova(bet.ps.norm) #ns
+plot(bet.ps.norm)
+
+adonis(seq.ps.norm ~ site/zone, data=samdf.ps.norm, permutations=999) #p<001***
+
+pairwise.adonis(seq.ps.norm, factors=samdf.ps.norm$site, permutations=999) #tahiti different from other two
+#        pairs    F.Model         R2 p.value p.adjusted
+# 1 MSE vs MNW  0.8174161 0.01344049   0.445      0.445
+# 2 MSE vs TNW 13.6939515 0.18333414   0.001      0.001
+# 3 MNW vs TNW 12.1951261 0.17129159   0.001      0.001
+```
+
+Relative abundance
+
+```{r stats by site rel}
+seq.ps.rel <- data.frame(ps.rel@otu_table)
+samdf.ps.rel <- data.frame(ps.rel@sam_data)
+
+dist.ps.rel <- vegdist(seq.ps.rel)
+bet.ps.rel <- betadisper(dist.ps.rel,samdf.ps.rel$site)
+anova(bet.ps.rel) #ns
+plot(bet.ps.rel)
+
+adonis(seq.ps.rel ~ site/zone, data=samdf.ps.rel, permutations=999) #p<001***
+
+pairwise.adonis(seq.ps.rel, factors=samdf.ps.rel$site, permutations=999) #tahiti different from other two
+#        pairs    F.Model         R2 p.value p.adjusted
+# 1 MSE vs MNW  0.8174161 0.01344049   0.445      0.445
+# 2 MSE vs TNW 13.6939515 0.18333414   0.001      0.001
+# 3 MNW vs TNW 12.1951261 0.17129159   0.001      0.001
+```
+
+```{r subset by site}
+ps.mnw <- subset_samples(ps,site=="MNW")
+ps.mnw.rel <- subset_samples(ps.rel,site=="MNW")
+ps.mnw.norm <- subset_samples(ps.norm,site=="MNW")
+
+ps.mse <- subset_samples(ps,site=="MSE")
+ps.mse.rel <- subset_samples(ps.rel,site=="MSE")
+ps.mse.norm <- subset_samples(ps.norm,site=="MSE")
+
+ps.tnw <- subset_samples(ps,site=="TNW")
+ps.tnw.rel <- subset_samples(ps.rel,site=="TNW")
+ps.tnw.norm <- subset_samples(ps.norm,site=="TNW")
+```
+
+Mo'orea NW
+
+```{r mnw stats}
+seq.ps.mnw <- data.frame(otu_table(ps.mnw))
+samdf.ps.mnw <- data.frame(sample_data(ps.mnw))
+row.names(seq.ps.mnw)==row.names(samdf.ps.mnw)
+
+dist.ps.mnw <- vegdist(seq.ps.mnw)
+bet.ps.mnw <- betadisper(dist.ps.mnw,samdf.ps.mnw$zone)
+anova(bet.ps.mnw) #ns
+plot(bet.ps.mnw)
+
+adonis(seq.ps.mnw ~ zone, data=samdf.ps.mnw, permutations=999) #p<01**
+```
+
+Normalized
+
+```{r normalized mnw stats}
+seq.ps.mnw.norm <- data.frame(otu_table(ps.mnw.norm))
+samdf.ps.mnw.norm <- data.frame(sample_data(ps.mnw.norm))
+row.names(seq.ps.mnw.norm)==row.names(samdf.ps.mnw.norm)
+
+dist.ps.mnw.norm <- vegdist(seq.ps.mnw.norm)
+bet.ps.mnw.norm <- betadisper(dist.ps.mnw.norm,samdf.ps.mnw.norm$zone)
+anova(bet.ps.mnw.norm) #ns
+plot(bet.ps.mnw.norm)
+
+adonis(seq.ps.mnw.norm ~ zone, data=samdf.ps.mnw.norm, permutations=999) #p<01**
+```
+
+Rel abundance
+
+```{r mnw rel}
+seq.ps.mnw.rel <- data.frame(otu_table(ps.mnw.rel))
+
+dist.ps.mnw <- vegdist(seq.ps.mnw.rel)
+bet.ps.mnw <- betadisper(dist.ps.mnw,samdf.ps.mnw$zone)
+anova(bet.ps.mnw) #ns
+permutest(bet.ps.mnw, permutations = 999,pairwise=F)
+plot(bet.ps.mnw) #ns
+
+adonis(seq.ps.mnw.rel ~ zone, data=samdf.ps.mnw, permutations=999) #sig p < 0.01
+```
+
+Mo'orea SE
+
+```{r mse stats}
+seq.ps.mse <- data.frame(otu_table(ps.mse))
+samdf.ps.mse <- data.frame(sample_data(ps.mse))
+row.names(seq.ps.mse)==row.names(samdf.ps.mse)
+
+dist.ps.mse <- vegdist(seq.ps.mse)
+bet.ps.mse <- betadisper(dist.ps.mse,samdf.ps.mse$zone)
+anova(bet.ps.mse) #ns
+plot(bet.ps.mse)
+
+adonis(seq.ps.mse ~ zone, data=samdf.ps.mse, permutations=999) #p<01**
+```
+
+Normalized
+
+```{r normalized mse stats}
+seq.ps.mse.norm <- data.frame(otu_table(ps.mse.norm))
+samdf.ps.mse.norm <- data.frame(sample_data(ps.mse.norm))
+row.names(seq.ps.mse.norm)==row.names(samdf.ps.mse.norm)
+
+dist.ps.mse.norm <- vegdist(seq.ps.mse.norm)
+bet.ps.mse.norm <- betadisper(dist.ps.mse.norm,samdf.ps.mse.norm$zone)
+anova(bet.ps.mse.norm) #ns
+plot(bet.ps.mse.norm)
+
+adonis(seq.ps.mse.norm ~ zone, data=samdf.ps.mse.norm, permutations=999) #p<01**
+```
+
+Rel abundance
+
+```{r mse rel}
+seq.ps.mse.rel <- data.frame(otu_table(ps.mse.rel))
+
+dist.ps.mse <- vegdist(seq.ps.mse.rel)
+bet.ps.mse <- betadisper(dist.ps.mse,samdf.ps.mse$zone)
+anova(bet.ps.mse) #ns
+permutest(bet.ps.mse, permutations = 999,pairwise=F)
+plot(bet.ps.mse) #ns
+
+adonis(seq.ps.mse.rel ~ zone, data=samdf.ps.mse, permutations=999) #sig p < 0.01
+```
+
+Tahiti NW
+
+```{r tnw stats}
+seq.ps.tnw <- data.frame(otu_table(ps.tnw))
+samdf.ps.tnw <- data.frame(sample_data(ps.tnw))
+row.names(seq.ps.tnw)==row.names(samdf.ps.tnw)
+
+dist.ps.tnw <- vegdist(seq.ps.tnw)
+bet.ps.tnw <- betadisper(dist.ps.tnw,samdf.ps.tnw$zone)
+anova(bet.ps.tnw) #ns
+plot(bet.ps.tnw)
+
+adonis(seq.ps.tnw ~ zone, data=samdf.ps.tnw, permutations=999) #p<01**
+```
+
+Normalized
+
+```{r normalized tnw stats}
+seq.ps.tnw.norm <- data.frame(otu_table(ps.tnw.norm))
+samdf.ps.tnw.norm <- data.frame(sample_data(ps.tnw.norm))
+row.names(seq.ps.tnw.norm)==row.names(samdf.ps.tnw.norm)
+
+dist.ps.tnw.norm <- vegdist(seq.ps.tnw.norm)
+bet.ps.tnw.norm <- betadisper(dist.ps.tnw.norm,samdf.ps.tnw.norm$zone)
+anova(bet.ps.tnw.norm) #ns
+plot(bet.ps.tnw.norm)
+
+adonis(seq.ps.tnw.norm ~ zone, data=samdf.ps.tnw.norm, permutations=999) #p<01**
+```
+
+Rel abundance
+
+```{r tnw rel}
+seq.ps.tnw.rel <- data.frame(otu_table(ps.tnw.rel))
+
+dist.ps.tnw <- vegdist(seq.ps.tnw.rel)
+bet.ps.tnw <- betadisper(dist.ps.tnw,samdf.ps.tnw$zone)
+anova(bet.ps.tnw) #ns
+permutest(bet.ps.tnw, permutations = 999,pairwise=F)
+plot(bet.ps.tnw) #ns
+
+adonis(seq.ps.tnw.rel ~ zone, data=samdf.ps.tnw, permutations=999) #sig p < 0.01
+```
+
+All syms
+
+```{r all syms stats, eval=FALSE}
+seq.all <- data.frame(otu_table(ps.all))
+samdf.ps.all <- data.frame(sample_data(ps.all))
+row.names(seq.all)==row.names(samdf.ps.all)
+
+dist.all <- vegdist(seq.all)
+bet.mnw.c <- betadisper(dist.all,samdf.ps.all$zone)
+anova(bet.mnw.c) #ns
+plot(bet.mnw.c) #very much overlap, not sig
+adonis(otu.mnw.c ~ site*zone, data=samdf.mnw.c, permutations=999)
+```
+
+```{r, eval=FALSE}
+seq.a <- select(seq.all,contains('A')) 
+#get rid of column 29 - it's a C
+seq.a.clean <- seq.a[,1:28]
+
+seq.c <- select(seq.all,contains('C')) 
+#get rid of column 1, it's an A
+seq.c.clean <- seq.c[,2:129]
+
+seq.ac <- seq.all %>%
+  select(contains('A')) %>%
+  select(contains('C'))
+#just those two
+
+seq.ac <- select(seq.all,!contains(c('C','A'))) 
+#there's a B1 in there haha
+
+seq.c.clean2 <- seq.c.clean[!rowSums(seq.c.clean)==0,]
+
+ps.all.c <- phyloseq(otu_table(as.matrix(seq.c.clean2), taxa_are_rows=FALSE),
+               sample_data(samdf))
+
+ps.all.c
+
+seq.a.clean2 <- seq.a.clean[!rowSums(seq.a.clean)==0,]
+
+ps.all.a <- phyloseq(otu_table(as.matrix(seq.a.clean2), taxa_are_rows=FALSE),
+               sample_data(samdf))
+
+ps.all.a
+
+#stats time - CLADOCOPIUM
+dist.c <- vegdist(seq.c.clean2)
+samdf.ps.c <- data.frame(sample_data(ps.all.c))
+row.names(samdf.ps.c)==row.names(seq.c.clean2)
+
+bet.c <- betadisper(dist.c,samdf.ps.c$site)
+anova(bet.c) #ns
+plot(bet.c) #very much overlap, not sig
+
+adonis(seq.c.clean2 ~ site/zone, data=samdf.ps.c, permutations=999)
+
+pairwise.adonis(seq.c.clean2, factors = samdf.ps.c$site, permutations = 999)
+#Tahiti different from other two
+
+ps.mnw.c <- subset_samples(ps.all.c,site=="MNW")
+otu.mnw.c <- data.frame(otu_table(ps.mnw.c))
+samdf.mnw.c <- data.frame(sample_data(ps.mnw.c))
+row.names(otu.mnw.c)==row.names(samdf.mnw.c)
+
+dist.mnw.c <- vegdist(otu.mnw.c)
+bet.mnw.c <- betadisper(dist.mnw.c,samdf.mnw.c$zone)
+anova(bet.mnw.c) #ns
+plot(bet.mnw.c) #very much overlap, not sig
+adonis(otu.mnw.c ~ zone, data=samdf.mnw.c, permutations=999)
+
+
+```
+
+## Find "most frequent" sym
+
+Just ran once to get the info
+
+```{r top sym, eval=FALSE}
+find.top.asv <- function(x,num){
+  require(phyloseq)
+  require(magrittr)
+  
+  otu <- otu_table(x)
+  tax <- tax_table(x)
+  j1 <- apply(otu,1,sort,index.return=T, decreasing=T) # modifying which.max to return a list of sorted index
+  j2 <- lapply(j1,'[[',"ix") # select for index
+  
+  l <- data.frame(unique(tax@.Data[unlist(j2),]))
+  m <- data.frame(otu@.Data[,unique(unlist(j2))])
+  n <- apply(m,1,sort,index.return=T, decreasing=T) %>%
+    lapply('[[',"ix") %>%  # Extract index
+    lapply(head,n=num) # This to returns the top x tax
+
+  p <- list()
+  for(i in 1:length(n)){
+    p[[i]]<- colnames(m)[n[[i]]]
+  }
+  m$taxa <- p
+  return(m)
+}
+
+top.asvs <- find.top.asv(ps,1)
+top.asvs$taxa <- as.character(top.asvs$taxa)
+
+#write.csv(top.asvs,file="top_sym.csv",row.names=TRUE)
+```
+
+```{r}
+table <- read.csv("silly_its_table.csv",header=T)
+
+heatmap(as.matrix(table[,2:11]), labRow=table[,1],rowv=NA)
+```
+
+```{r scraps, include=FALSE, eval=FALSE}
+#### Genus by site & zone
+
+#Nothing interesting
+
+# ps.sz <- merge_samples(ps, "site_zone")
+# ps.sz.clade <- tax_glom(ps.sz, "Clade")
+# ps.sz.clade.rel <- transform_sample_counts(ps.sz.clade, function(x) x / sum(x))
+# plot_bar(ps.sz.clade.rel, fill="Clade")+
+#     geom_bar(aes(color=Clade, fill=Clade), stat="identity", position="stack")
+
+#messy scraps
+
+## Trying out pie charts
+
+#install.packages("remotes")
+#remotes::install_github("cpauvert/psadd")
+
+ggplot(melt.ps.rel.mnw, aes(x = "", y = Abundance, fill = ITS2_type_profile)) +
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0)+
+  #geom_text(aes(y = lab.ypos,), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+
+
+ps.sz.rel <- transform_sample_counts(ps.sz, function(x) x / sum(x))
+
+plot_heatmap(ps.rel,sample.label="site_zone",sample.order="site_zone")
+plot_heatmap(ps.sz.rel,sample.order="site_zone",low="blue",high="red",na.value="black")+
+  facet_wrap(~site)
+
+rownames(dat) = dat$weather
+
+ps.sz.rel@sam_data$zone <- c("BR","FR","BR","FR","BR","FR")
+plot_heatmap(ps.sz.rel,sample.order="site_zone",low="blue",high="red",na.value="black",method=NULL,distance=NULL)
+
+
+seq.sz.rel <- data.frame(ps.sz.rel@otu_table)
+heatmap.2(as.matrix(t(seq.sz.rel)),Rowv=FALSE,Colv=FALSE)
+
+melt.sz.rel <- psmelt(ps.sz.rel)
+
+ggplot(melt.sz.rel, aes(x = Sample, y = OTU)) + 
+  geom_point(aes(size = Abundance, fill = OTU), alpha = 0.75, shape = 21)+
+  #facet_grid(indic_res~.,scales="free",space="free")+
+  theme_cowplot()
+  #scale_fill_manual(values=cols.mnw, guide=FALSE)+
+  #ggtitle("Moorea NW")+
+  #ylab("ASV")+
+  #xlab("")+
+  #scale_x_discrete(labels=c("Back","Fore"))
+
+melt.ps <- psmelt(ps)
+ggplot(melt.ps, aes(x = sample_full, y = OTU)) + 
+  geom_point(aes(size = Abundance, fill = OTU), alpha = 0.75, shape = 21)+
+  #facet_grid(indic_res~.,scales="free",space="free")+
+  theme_cowplot()
+  #scale_fill_manual(values=cols.mnw, guide=FALSE)+
+  #ggtitle("Moorea NW")+
+  #ylab("ASV")+
+  #xlab("")+
+  #scale_x_discrete(labels=c("Back","Fore"))
+
+melt.ps.rel <- psmelt(ps.rel)
+melt.ps.rel.mnw <- subset(melt.ps.rel,site=="MNW")
+melt.ps.rel.mnw.no0 <- subset(melt.ps.rel.mnw,Abundance>0)
+ggplot(melt.ps.rel.mnw.no0, aes(x = sample_full, y = OTU)) + 
+  geom_point(aes(size = Abundance, fill = OTU), alpha = 0.75, shape = 21)+
+  #facet_grid(indic_res~.,scales="free",space="free")+
+  theme_cowplot()
+
+## Presence/absence
+
+sppAbun <- as.data.frame(ps@otu_table)
+
+sppAbun[sppAbun > 0] <- 1 #converts from abundance to P/A
+sppAbun
+
+mnwb.names <- subset(samdf,site_zone=="MNW-B")
+mnwf.names <- subset(samdf,site_zone=="MNW-F")
+
+mnwb.rows <- c(row.names(mnwb.names))
+
+mnwb.pres <- sppAbun[row.names(sppAbun) %in% mnwb.rows,]
+colSums(mnwb.pres)
+plot(colSums(mnwb.pres))
+
+#install.packages("gplots")
+library(gplots)
+heatmap.2(as.matrix(sppAbun),Rowv=FALSE,Colv=FALSE)
+dev.off()
+
+heatmap(as.matrix(sppAbun), scale='none')
+
+ps.bin <- phyloseq(otu_table(sppAbun, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(mtaxa))
+
+ps.bin
+
+
+plot_heatmap(ps.bin,sample.order="site_zone")
+dev.off()
+
+```
+
