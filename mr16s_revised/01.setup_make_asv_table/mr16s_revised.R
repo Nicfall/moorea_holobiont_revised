@@ -343,7 +343,7 @@ plot_bar(ps_glom, x="site", fill="Family")+
 
 #phyloseq object with shorter names - doing this one instead of one above
 ids <- paste0("sq", seq(1, length(colnames(seqtab.nochim))))
-#making output fasta file for lulu step & maybe other things
+#making output fasta file 
 #path='~/Google Drive/Moorea_revisions/mr16s_revised.fasta'
 #uniquesToFasta(seqtab.nochim, path, ids = ids, mode = "w", width = 20000)
 
@@ -441,7 +441,6 @@ ps.cleaner <- subset_samples(ps.clean1,(site!="neg"))
 # #command taxonkit should work now
 
 ##extracting taxa ids from blast output for taxonkit:
-##had 'taxid.snippet' as output but changed it to mr16s_taxids.out.. 
 # awk -F " " '{print $13}' mr16s_taxids.out > ids
 # taxonkit lineage ids > ids.tax
 # cut -f1 mr16s_taxids.out > ids.seq; paste ids.seq ids.tax > ids.seq.tax
