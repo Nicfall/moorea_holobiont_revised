@@ -13,7 +13,7 @@ output:
 
 ```{r setup, include=FALSE}
 #work computer 
-setwd("~/Google Drive (nicfall@bu.edu)/Moorea_revisions/mr16s_revised/analysis/02.diversity")
+setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/Moorea_revisions/moorea_holobiont_revised/mr16s_revised/02.diversity")
 ```
 
 # Setup
@@ -319,6 +319,9 @@ summary(aov(even~zone,data=df.div.tnw)) #ns
 Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
 
 ```{r packages phylo d}
+#install.packages('devtools')
+#library(devtools)
+#devtools::install_github('twbattaglia/btools')
 library(btools)
 ```
 
