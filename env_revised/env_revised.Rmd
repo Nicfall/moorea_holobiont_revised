@@ -35,14 +35,10 @@ library(ggpubr)
 # Substrate composition
 
 ```{r data processing}
-<<<<<<< HEAD
 #home comp
-#sub.tah <- read.csv('/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
+sub.tah <- read.csv('/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
 #work comp
-sub.tah <- read.csv('~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
-=======
-sub.tah <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/substrate.csv",header=TRUE)
->>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
+#sub.tah <- read.csv('~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/substrate.csv',header=TRUE)
 
 sub <- subset(sub.tah,Marine.Area!="Tahiti Faaa")
 
@@ -224,11 +220,10 @@ ggarrange(sub.med,sub.med2,common.legend=TRUE,legend="right")
 # Nutrients
 
 ```{r read in nutrient data}
-<<<<<<< HEAD
 #home comp
-#nuts <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
+nuts <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
 #work comp
-nuts <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
+#nuts <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
 
 str(nuts)
 ```
@@ -240,10 +235,6 @@ str(nuts)
 ```{r}
 nuts$ym <- paste0(nuts$year,"_",nuts$month)
 nuts$date2 <- as.Date(nuts$date,"%m/%d/%y")
-=======
-nuts <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/nuts_13-14_renamed.csv",header=T)
->>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
-str(nuts)
 
 gg.new.pho <- ggplot(nuts,aes(x=date2,y=Phosphate_P2O5_uM,color=habitat,group=habitat,shape=habitat))+
   geom_line()+
@@ -506,13 +497,10 @@ ggarrange(gg.pho,gg.nia,gg.nii,gg.sil,gg.amm,labels="AUTO")
 # Flow
 
 ```{r flow data}
-<<<<<<< HEAD
 #home comp
-#flowdat <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
+flowdat <- read.csv("/Volumes/Macintosh HD/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
 #work comp
-=======
->>>>>>> be92149c87bdd293bfde9e9b9b6c2f6815f28342
-flowdat <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
+#flowdat <- read.csv("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/env_revised/flow_rates_reformatted.csv",header=T)
 
 ggplot(flowdat,aes(x=site,y=speed_ms,fill=site))+
   geom_boxplot()+
@@ -532,9 +520,284 @@ a.flow <- aov(speed.t~site,data=flowdat)
 summary(a.flow)
 plot(a.flow)
 
-
 flow.sd <- summarySE(data=flowdat,measurevar="speed_ms",groupvars="site")
 flow.sd
+```
+
+# Temperature
+
+```{r temp packages}
+library("ggplot2")
+library("Rmisc")
+#install.packages("lubridate")
+#install.packages("tidyverse")
+library("lubridate")
+library("tidyverse")
+library("cowplot")
+library("ggpubr")
+library("extrafont")
+```
+
+```{r}
+#started with hogo logger excel sheets, 
+#cleaned the header so R would be happy, 
+#added the logger column,
+#lastly duplicated the date/time column so that I could 
+#have one each for 'year', 'month', 'day', and 'time'. 
+#Designated these by changing the 'custom format' for the cells in Excel
+
+#read in data
+data <- read.csv("~/Google Drive (thenicolakriefall@gmail.com)/Moorea/Fig_env/mr_env.csv",header=TRUE)
+str(data$site)
+
+#me trying to get R to understand my date formatting
+data$date <- paste(data$year,"/",data$month,"/",data$day)
+data$date <- gsub(' ', '', data$date)
+data$date <- as.Date(data$date,format="%Y/%m/%d")
+
+#examining individual sites
+# f1 <- subset(data,site=="F1") #closest to shore, fringing reef
+# c <- subset(data,site=="C") #channel
+b1 <- subset(data,site=="B1") #barrier reef
+p3 <- subset(data,site=="P3") #outer slope
+# p8 <- subset(data,site=="P8") #next outer slope
+# p14 <- subset(data,site=="P14") 
+# p25 <- subset(data,site=="P25")
+# p35 <- subset(data,site=="P35")
+# p55 <- subset(data,site=="P55")
+
+#checking them out
+plot(temp~date,data=p3)
+
+#plotting all of them
+ggplot(data,aes(x=date,y=temp,group=site,color=site))+
+  geom_line()
+
+#lots of strange noise in the deeper sites in the middle, taking those out:
+noise <- subset(data,site=="C" | site =="F1" | site=="B1" | site=="P3" | site=="P8")
+noise$site <- factor(noise$site,levels=c("F1","B1","C","P3","P8"))
+ggplot(noise,aes(x=date,y=temp,group=site,color=site))+
+  geom_line()
+
+#most interested in B1 barrier reef & P3
+spec <- subset(data,site=="B1" | site=="P3")
+ggplot(spec,aes(x=date,y=temp,group=site,color=site))+
+  geom_line()+
+  scale_color_manual(name="Reef zone",values=c("#ED7953FF","#8405A7FF"),labels=c("Back reef","Fore reef"))+
+  theme_cowplot()+
+  ylab("Temperature (˚C)")+
+  xlab("")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),text=element_text(family="Gill Sans MT"))
+
+#plotting summer months because most interesting
+spec2 <- spec %>%
+  filter(as.Date(spec$date) >= as.Date("2013-06-01") & as.Date(spec$date) <= as.Date("2013-09-01"))
+
+#install.packages("extrafont")
+library(extrafont)
+font_import()  # Import fonts
+loadfonts()  # Load them all
+fonts()  # See what fonts are available
+
+colorz <- c("coral1","cyan3")
+spec2$all <- paste(spec2$date,spec2$time)
+ggplot(spec2,aes(x=all,y=temp,color=site,group=site))+
+  geom_line()+
+  ylab('Temperature (˚C)')+
+  xlab('')+
+  scale_color_manual(values=colorz,labels=c("Inshore","Offshore"))+
+  theme_classic()+
+  theme(legend.position=c(0.175,0.175),legend.background = element_rect(color=1),text=element_text(family="Gill Sans MT"))+
+  scale_x_discrete(labels=c("Jun 2013","Jul 2013","Aug 2013"),breaks=c("2013-06-15 00:00","2013-07-15 00:00","2013-08-15 00:00"))+
+  labs(color="Reef zone")
+
+#all the year instead of just some
+spec$all <- paste(spec$date,spec$time)
+ggplot(spec,aes(x=date,y=temp,color=site,group=site))+
+  geom_line()+
+  ylab('Temperature (˚C)')+
+  xlab('')+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Backreef","Forereef"))+
+  theme_cowplot()+
+  theme(legend.position=c(0.175,0.175),legend.background = element_rect(color=1),text=element_text(family="Gill Sans MT"))+
+  scale_x_discrete(labels=c("Jun 2013","Jul 2013","Aug 2013"),breaks=c("2013-06-15 00:00","2013-07-15 00:00","2013-08-15 00:00"))+
+  labs(color="Reef zone")
+
+#Temperature by month boxplot
+temp <- summarySE(spec,measurevar="temp",groupvars=c("site","month","observ"))
+temp$month <- as.factor(temp$month)
+ggplot(temp,aes(x=month,y=temp,color=site))+
+  geom_boxplot()+
+  theme_bw()
+
+var.test(values ~ groups, data, 
+         alternative = "two.sided")
+
+#install.packages("doBy")
+library("doBy") 
+#citation("doBy")
+#citation("ggplot2")
+#defining functions to do: mean, variance, and range (min & max)
+fun <- function(x){
+  c(m=mean(x), v=var(x), r=range(x))
+}
+range <- summaryBy(temp ~ date*site, data=spec,
+                   FUN=fun)
+str(range)
+range$var <- range$temp.r2-range$temp.r1
+
+svar <- summarySE(range,measurevar="var",groupvars="site",na.rm = TRUE)
+
+svar
+# site  N       var        sd         se         ci
+# 1   B1 93 1.1800430 0.5167392 0.05358336 0.10642117
+# 2   P8 93 0.3056022 0.1472730 0.01527150 0.03033051
+
+#calculating some averages by site:
+br <- subset(range,site=="B1")
+fr <- subset(range,site=="P3")
+
+mean(br$var) #0.9259726
+sd(br$var) #0.4460952
+mean(br$temp.r1) #27.12399
+mean(br$temp.r2) #28.04996
+
+mean(fr$var) #0.5052822
+sd(fr$var) #0.2305518
+mean(fr$temp.r1) #27.26698
+mean(fr$temp.r2) #27.77226
+
+#plotting range in temperature data by day
+#old plot
+var <- ggplot(svar,aes(x=site,y=var,color=site,shape=site))+
+  geom_jitter(data=range,alpha=0.05)+
+  geom_point()+
+  geom_errorbar(aes(ymin=var-sd,ymax=var+sd),width=0.1)+
+  theme_cowplot()+
+  ylab("Temp. range (˚C/day)")+
+  xlab("Site")+
+  scale_x_discrete(breaks=c("B1","P3"),labels=c("MNW-B","MNW-F"))+
+  theme(legend.position="none")+
+  geom_text(x=2, y=2.9, label="p < 0.005***",color="black")+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_shape_manual(values=c(16,15))
+var
+
+#boxplot instead
+var <- ggplot(range,aes(x=site,y=var,color=site,shape=site))+
+  geom_jitter(alpha=0.5)+
+  geom_boxplot(outlier.shape=NA,alpha=0.8)+
+  theme_cowplot()+
+  ylab("Temp. range (˚C/day)")+
+  xlab("Site-RZ")+
+  scale_x_discrete(breaks=c("B1","P3"),labels=c("MNW-B","MNW-F"))+
+  theme(legend.position="none")+
+  #geom_text(x=2, y=2.9, label="p < 0.001***",color="black")+
+  annotate(geom="text", x=2, y=2.9, label="p < 0.001***")+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
+  scale_shape_manual(values=c(16,15))
+var
+
+#maybe density plot instead
+ggplot(range,aes(x=var,color=site))+
+  geom_density(data=range,alpha=0.2)
+
+a1 <- aov(log(var)~site,data=range)
+summary(a1)
+par(mfrow=c(2,2))
+plot(a1)
+shapiro.test(log(range$var)) #normal
+
+library(bestNormalize)
+bestNormalize(range$temp.m)
+norm <- orderNorm(range$temp.m)
+range$temp.m.t <- norm$x.t
+shapiro.test(range$temp.m.t) #doesn't work
+a2 <- aov(temp.m.t~site,data=range)
+summary(a2)
+par(mfrow=c(2,2))
+plot(a2)
+
+wilcox.test(temp.m~site,data=range)
+a2 <- aov(temp.m~site,data=range)
+summary(a2)
+par(mfrow=c(2,2))
+plot(a2)
+
+#justsite <- summaryBy(temp ~ site*time, data=spec3,
+#                   FUN=fun)
+
+#the average at the same time for the month of July
+spec3 <- spec %>%
+  filter(as.Date(spec$date) >= as.Date("2013-07-01") & as.Date(spec$date) <= as.Date("2013-08-01"))
+
+#month <- summarySE(spec3,measurevar="temp",groupvars=c("site","time"),na.rm = TRUE)
+ggplot(spec3,aes(x=time,y=temp,color=site,group=site))+
+  geom_smooth(aes(color=site,group=site))+
+  scale_x_discrete(breaks=c("01:00","12:00","22:00"),labels=c("1am","12pm","10pm"))+
+  theme_cowplot()+
+  xlab("Time")+
+  ylab("Temperature (˚C)")+
+  scale_color_manual(name="Site",values=c("#ED7953FF","#8405A7FF"),labels=c("MNW-B","MNW-F"))+
+  theme(legend.background=element_rect(colour="black",fill='white',linetype='solid'),legend.position=c(0.02,0.85),text=element_text(family="Times"))
+
+month <- ggplot(spec,aes(x=time,y=temp,color=site,group=site,linetype=site))+
+  geom_smooth(aes(color=site,group=site,fill=site))+
+  scale_x_discrete(breaks=c("02:00","12:00","22:00"),labels=c("2am","12pm","10pm"))+
+  theme_cowplot()+
+  xlab("Time")+
+  ylab("Temperature (˚C)")+
+  scale_fill_manual(name="Site-RZ",values=c("rosybrown1","thistle1"),labels=c("MNW-B","MNW-F"))+
+  scale_color_manual(name="Site-RZ",values=c("#ED7953FF","#8405A7FF"),labels=c("MNW-B","MNW-F"))+
+  #theme(legend.background=element_rect(colour="black",fill='white',linetype='solid'),legend.position=c(0.02,0.85),text=element_text(family="Times"))+
+  theme(legend.position=c(0.02,0.85))+
+  scale_linetype_manual(name="Site-RZ",values=c("solid","twodash"),labels=c("MNW-B","MNW-F"))
+
+ggarrange(month,var,nrow=1,ncol=2,widths=c(1.4,1),labels=c("B.","C."))
+
+#just 1 day in the life
+day <- spec %>%
+  filter(as.Date(spec$date) == as.Date("2013-07-26"))
+
+#month <- summarySE(spec3,measurevar="temp",groupvars=c("site","time"),na.rm = TRUE)
+ggplot(day,aes(x=time,y=temp,color=site,group=site))+
+  geom_path(aes(color=site,group=site))+
+  theme_cowplot()+
+  xlab("Time")+
+  ylab("Temperature (˚C)")+
+  scale_x_discrete(breaks=c("01:00","12:00","22:00"),labels=c("1am","12pm","10pm"))+
+  scale_color_manual(name="Site",values=c("coral","cyan3"),labels=c("MNW-B","MNW-F"))+
+  theme(legend.background=element_rect(colour="black",fill='white',linetype='solid'),legend.position=c(0.02,0.85),text=element_text(family="Times"))
+
+ggarrange(month,var,nrow=1,ncol=2)
+
+#### stats round 2 ####
+#mean
+shapiro.test(range$temp.m)
+shapiro.test(log(range$temp.m))
+#just not gonna work
+
+wilcox.test(temp.m~site,data=range) #W = 67254, p-value = 0.822
+
+#levene's test
+library(car)
+
+spec$site <- as.factor(spec$site)
+leveneTest(temp ~ site, data = spec)
+# Levene's Test for Homogeneity of Variance (center = median)
+#          Df F value Pr(>F)
+# group     1   1.604 0.2054
+#       17518  
+
+spec$site <- as.factor(spec$site)
+leveneTest(temp ~ site, data = spec,center=mean)
+
+#now variance
+shapiro.test(log(range$temp.v))
+qqPlot(log(range$temp.v))
+
+wilcox.test(log(temp.v)~site,data=range)
+wilcox.test(temp.v~site,data=range) #very sig
 ```
 
 ```{r session info}
