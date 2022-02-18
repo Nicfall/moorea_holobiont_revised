@@ -25,7 +25,7 @@ library(phyloseq)
 
 #setwd("nicfall_drive/Moorea_revisions/host-microbes/")
 #setwd("~/Google Drive (nicfall@bu.edu)/Moorea_revisions/host-microbes")
-setwd("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/host-microbes")
+setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/Moorea_revisions/moorea_holobiont_revised/host-microbes")
 ```
 
 ## 2b-RAD x 16S
