@@ -32,7 +32,7 @@ Read in data
 
 ```{r read in data}
 #setwd('/Users/nicolakriefall/Google Drive (nicfall@bu.edu)/Moorea_revisions/mr16s_revised/analysis/03.community_comp')
-setwd("~/nicfall@bu.edu - Google Drive/My Drive/Moorea_revisions/mr16s_revised/analysis/03.community_comp")
+setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/Moorea_revisions/moorea_holobiont_revised/mr16s_revised/03.community_comp")
 
 samdf <- read.csv("mr16s_sampledata_plusneg copy.csv",header=TRUE)
 load("taxa2 copy.Rdata")
@@ -286,7 +286,7 @@ adonis(seq.core.tnw ~ zone,data=samdf.core.tnw, permutations=999)
 
 ## Accessory
 
-```{r accessory, eval=FALSE}
+```{r accessory}
 ps.rare.trim.otu <- data.frame(ps.trim@otu_table)
 #ps.rare.trim.otu <- data.frame(ps.rare.trim@otu_table)
 core.tax <- data.frame(pseq.core@tax_table)
@@ -903,9 +903,9 @@ library(tidyverse)
 library(nlme)
 #install.packages('compositions')
 library(compositions)
-source("/Volumes/GoogleDrive/My Drive/Moorea_revisions/mr16s_revised/analysis/scripts/ancom_v2.1.R")
+source("ancom_v2.1.R")
 
-setwd("/Volumes/GoogleDrive/My Drive/Moorea_revisions/mr16s_revised/analysis/03.community_comp")
+#setwd("/Volumes/GoogleDrive/My Drive/Moorea_revisions/mr16s_revised/analysis/03.community_comp")
 ```
 
 ```{r ancom all, eval=FALSE}
@@ -1154,158 +1154,6 @@ plot_bar(ps.sig.taxa,x="site_zone",y="Abundance",fill="Genus")+
 
 #ggsave("sig.genus.abun.pdf",width=11)
 ```
-
-Heat map attempts
-
-```{r}
-library("microbiomeutilities")
-library("viridis")
-
-ps.sig.mnw <- subset_samples(ps.sig.taxa,site=="MNW")
-
-ps.sig.mnw.sz <- merge_samples(ps.sig.mnw,"site_zone")
-
-ps.sig.mnw.sz@sam_data$zone <- c("A","B")
-
-heat.sig.mnw <- plot_taxa_heatmap(ps.sig.mnw.sz,
-  subset.top=14,                               
-  VariableA = "zone",
-  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
-  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=F,
-  cluster_rows=F
-)
-#pdf: 3 x 4 in
-
-ps.sig.mse <- subset_samples(ps.sig.taxa,site=="MSE")
-
-ps.sig.mse.sz <- merge_samples(ps.sig.mse,"site_zone")
-
-ps.sig.mse.sz@sam_data$zone <- c("A","B")
-
-heat.sig.mse <- plot_taxa_heatmap(ps.sig.mse.sz,
-  subset.top=14,                               
-  VariableA = "zone",
-  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
-  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=F,
-  cluster_rows=F
-)
-
-ps.sig.tnw <- subset_samples(ps.sig.taxa,site=="TNW")
-
-ps.sig.tnw.sz <- merge_samples(ps.sig.tnw,"site_zone")
-
-ps.sig.tnw.sz@sam_data$zone <- c("A","B")
-
-heat.sig.tnw <- plot_taxa_heatmap(ps.sig.tnw.sz,
-  subset.top=14,                               
-  VariableA = "zone",
-  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
-  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=F,
-  cluster_rows=F
-)
-```
-
-```{r messy crap, eval=FALSE}
-
-
-
-
-heat.sig <- plot_taxa_heatmap(ps.sig.taxa,
-  subset.top=14,                               
-  VariableA = "zone",
-  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=T
-)
-
-ps.sz <- merge_samples(ps.rare.trim, "site_zone")
-
-ps.sig.taxa.sz <- subset_taxa(ps.sz,row.names(ps.sz@tax_table) %in% want)
-#37 & 13 are in there twice
-
-ps.sig.taxa.sz@sam_data$zone <- c("A","B","A","B","A","B")
-
-heat.sig <- plot_taxa_heatmap(ps.sig.taxa.sz,
-  subset.top=14,                               
-  VariableA = "zone",
-  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "Z-OTU",
-  cluster_cols=F
-)
-
-```
-
-# Heat maps!
-
-```{r}
-#evtools::install_github("microsud/microbiomeutilities")
-library("microbiomeutilities")
-
-#package doesn't like the sq level
-taxa.tab <- as.data.frame(ps.trim@tax_table)
-taxa.tab.nosq <- as.matrix(taxa.tab[,1:7])
-seq.trim.tab <- as.data.frame(ps.trim@otu_table)
-
-rownames(samdf) <- samdf$id
-
-ps.trim.nosq <- phyloseq(otu_table(seq.trim.tab, taxa_are_rows=FALSE), 
-                         sample_data(samdf), 
-                         tax_table(taxa.tab.nosq))
-
-
-
-library(RColorBrewer)
-
-heat.sample <- plot_taxa_heatmap(ps.trim.nosq,
-  subset.top=223,                               
-  VariableA = "site",
-  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=T
-)
-
-ps.trim.nosq.mnw <- subset_samples(ps.trim.nosq,site=="MNW")
-
-heat.mnw <- plot_taxa_heatmap(ps.trim.nosq.mnw,
-  subset.top = 20,
-  VariableA = "zone",
-  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "log10",
-  cluster_cols=T
-)
-
-ps.trim.nosq.mse <- subset_samples(ps.trim.nosq,site=="MSE")
-
-heat.mse <- plot_taxa_heatmap(ps.trim.nosq.mse,
-  subset.top = 20,
-  VariableA = "zone",
-  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
-  #heatcolors = colorRampPalette(brewer.pal(n = 7, name = "Purples"))(100),#took out rev() here
-  transformation = "log10",
-  cluster_cols=T
-)
-
-ps.sz <- merge_samples(ps.rare.trim, "site_zone")
-
-ps.sz@sam_data$zone <- c("A","B","A","B","A","B")
-
-heat.all.sz <- plot_taxa_heatmap(ps.sz,
-  subset.top=20,                               
-  VariableA = "zone",
-  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-  transformation = "Z-OTU",
-  cluster_cols=F
-)
-```
-
-
-
 
 
 
